@@ -9,6 +9,8 @@
 
     <link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/login.css">
+<link rel="stylesheet" href="../css/autenticacao.css">
+    <script type="module" src="../js/login.js"></script>
 </head>
 
 <body>
@@ -31,7 +33,7 @@
             </div>
 
 
-            <form action="inicio.html" method="get">
+            <form id="login-form" method="post">
 
                 <div class="form-group">
 
@@ -42,7 +44,7 @@
                     <input
                         type="email"
                         id="email"
-                        name="email"
+                        name="email" autocomplete="email" required
                         placeholder="Digite seu e-mail"
                     >
 
@@ -56,18 +58,20 @@
                     <input
                         type="password"
                         id="senha"
-                        name="senha"
+                        name="senha" autocomplete="current-password" required
                         placeholder="Digite sua senha"
                     >
                 </div>
 
-                <button type="submit">
+                <p id="auth-feedback" class="auth-feedback" role="status" aria-live="polite" tabindex="-1" hidden></p>
+                <button type="submit" id="submit-auth" disabled>
                     Entrar
                 </button>
 
-                <a href="#">
-                    Esqueci minha senha
-                </a>
+                <button type="button" class="text-button" id="reset-password" disabled>Esqueci minha senha</button>
+                <a href="cadastro.html">Ainda não tem conta? Cadastre-se</a>
+                <p id="connection-note" class="field-help">Preparando conexão… Se esta mensagem persistir, verifique sua conexão e recarregue a página.</p>
+                <noscript>Ative o JavaScript para entrar.</noscript>
 
             </form>
 

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ekklesia | Minha comunidade</title>
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/portal-membro.css">
+  <script type="module" src="../js/portal-membro.js"></script>
+</head>
+<body>
+  <p id="portal-loading" class="loading" role="status">Preparando sua comunidade… Se esta mensagem persistir, confira a conexão e recarregue a página.</p>
+  <noscript>Ative o JavaScript para acessar sua comunidade.</noscript>
+  <div id="portal" hidden>
+    <header class="portal-header">
+      <a href="portal-membro.html" class="brand"><img src="../assets/logo.jpeg" alt=""><span>EKKLESIA<small>Gestão para Comunidades</small></span></a>
+      <div class="account"><span id="member-name"></span><span class="tag">Membro</span><button id="logout" class="quiet" type="button">Sair</button></div>
+    </header>
+    <nav class="portal-nav" aria-label="Sua comunidade">
+      <a href="#inicio" data-section="inicio" aria-current="page">Início</a>
+      <a href="#ministerios" data-section="ministerios">Ministérios</a>
+      <a href="#celulas" data-section="celulas">Células</a>
+      <a href="#disponibilidades" data-section="disponibilidades">Minhas disponibilidades</a>
+      <a href="#campanhas" data-section="campanhas">Campanhas</a>
+    </nav>
+    <main class="portal-main">
+      <div class="page-top"><p class="eyebrow">JUNTOS EM COMUNIDADE</p><button id="refresh" class="quiet" type="button">Atualizar dados</button></div>
+      <p id="portal-message" role="status" tabindex="-1" hidden></p>
+      <section data-panel="inicio">
+        <div class="welcome"><div><h1>Um lugar para pertencer.<br>Uma oportunidade de servir.</h1><p>Acompanhe sua comunidade, participe dos cultos e apoie quem precisa.</p><a href="#disponibilidades" class="button">Informar minha disponibilidade</a></div><div class="welcome-mark" aria-hidden="true">✦</div></div>
+        <div id="portal-stats" class="stats"></div>
+        <div class="section-title"><div><p class="eyebrow">NOSSA AGENDA</p><h2>Próximos cultos</h2></div><a href="#disponibilidades">Ver minhas disponibilidades →</a></div>
+        <p class="hint">Horários de Brasília. Informar disponibilidade não significa que você já foi escalado.</p>
+        <div id="worship-list" class="card-grid"></div>
+      </section>
+      <section data-panel="ministerios" hidden><h1>Ministérios</h1><p class="intro">Conheça as frentes de serviço e as pessoas que fazem parte delas.</p><label class="search-label">Buscar ministério<input type="search" id="ministry-search" placeholder="Nome ou líder"></label><div id="ministry-list" class="card-grid"></div></section>
+      <section data-panel="celulas" hidden><h1>Células</h1><p class="intro">Encontre os grupos, seus encontros e os membros vinculados.</p><label class="search-label">Buscar célula<input type="search" id="cell-search" placeholder="Nome, líder ou local"></label><div id="cell-list" class="card-grid"></div></section>
+      <section data-panel="disponibilidades" hidden>
+        <h1>Minhas disponibilidades</h1><p class="intro">Escolha um culto e avise à liderança quando você pode servir.</p>
+        <div class="availability-layout">
+          <form id="availability-form" class="card">
+            <h2>Informar disponibilidade</h2><p class="hint">A resposta será registrada em seu nome.</p>
+            <label for="worship-select">Culto</label><select id="worship-select" required><option value="">Carregando cultos…</option></select>
+            <p id="worship-detail" class="hint"></p>
+            <label for="availability-note">Observação (opcional)</label><textarea id="availability-note" rows="3" maxlength="500" placeholder="Algo que a liderança precisa saber? Evite informações pessoais sensíveis."></textarea>
+            <button id="save-availability" class="button" type="submit">Confirmar disponibilidade</button>
+            <p id="availability-message" role="status" tabindex="-1" hidden></p>
+          </form>
+          <div><h2>Meu histórico</h2><p class="hint">Você pode atualizar sua observação ou cancelar uma resposta.</p><div id="my-availability"></div></div>
+        </div>
+      </section>
+      <section data-panel="campanhas" hidden><h1>Campanhas da congregação</h1><p class="intro">Cada contribuição ajuda a cuidar de mais pessoas.</p><div id="campaign-list" class="card-grid"></div></section>
+    </main>
+    <footer class="portal-footer">Ekklesia · Fé, cuidado e comunidade.</footer>
+  </div>
+  <dialog id="participants-dialog" aria-labelledby="participants-title"><div class="dialog-top"><h2 id="participants-title">Participantes</h2><button type="button" id="close-participants" class="quiet" aria-label="Fechar participantes">Fechar</button></div><div id="participants-content"></div></dialog>
+  <dialog id="donation-dialog" aria-labelledby="donation-title"><div class="dialog-top"><h2 id="donation-title">Como doar</h2><button type="button" id="close-donation" class="quiet" aria-label="Fechar doação">Fechar</button></div><div id="donation-content"></div><p id="copy-message" role="status"></p></dialog>
+</body>
+</html>

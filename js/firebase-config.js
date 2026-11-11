@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDQLJijel2cGiCS3_H77xorhT62DW_xE-Y",
@@ -12,10 +13,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-console.log("🔥 Firebase conectado com sucesso!", app);
-
 const db = getFirestore(app);
-
-console.log("🔥 Firestore conectado com sucesso!", db);
-
-export { app, db };
+const auth = getAuth(app);
+export { app, db, auth, firebaseConfig };

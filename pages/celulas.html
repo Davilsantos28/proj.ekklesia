@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="auth-checking">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,12 +7,15 @@
 <link rel="stylesheet" href="../css/global.css">
 <link rel="stylesheet" href="../css/inicio.css">
 <link rel="stylesheet" href="../css/gestao.css">
-<script src="../js/dados.js" defer>
-</script>
-<script type="module" src="../js/gestao.js"></script>
-</script>
+
+
+
+<link rel="stylesheet" href="../css/autenticacao.css">
+<script type="module" src="../js/admin-bootstrap.js"></script>
 </head>
 <body data-page="celulas">
+<p id="access-loading" class="access-loading" role="status">Verificando acesso… Se esta mensagem persistir, confira sua conexão e recarregue a página.</p>
+<noscript>Ative o JavaScript para acessar o sistema.</noscript>
 <a class="skip-link" href="#page-content">Ir para o conteúdo</a>
     <div class="layout">
 
@@ -145,7 +148,7 @@
 <button type="button" class="button" id="add-record">＋ Nova Célula</button>
 </div>
 </div>
-<p class="demo-notice">Demonstração • dados fictícios, salvos apenas neste navegador. Utilize informações de teste.</p>
+<p class="demo-notice">Dados compartilhados da comunidade • alterações administrativas são salvas no Firebase.</p>
 <div class="stats-grid" id="module-stats" aria-label="Indicadores">
 </div>
 <form class="filters" id="filters" role="search">
@@ -160,7 +163,7 @@
 <section class="table-panel" aria-label="Listagem de células">
 <div class="table-scroll">
 <table id="records-table">
-<caption class="sr-only">Células da comunidade — dados demonstrativos</caption>
+<caption class="sr-only">Células da comunidade — dados da comunidade</caption>
 <thead>
 </thead>
 <tbody>

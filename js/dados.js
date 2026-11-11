@@ -845,7 +845,7 @@ window.Ekklesia = {
   }
   function upcoming(rows, now = new Date()) {
     return rows.filter(row => !['Concluída','Cancelada'].includes(row.status) && scheduleDate(row) && scheduleDate(row) > now)
-      .sort((a,b) => scheduleDate(a) - scheduleDate(b) || a.nome.localeCom0pare(b.nome,'pt-BR'));
+      .sort((a,b) => scheduleDate(a) - scheduleDate(b) || a.nome.localeCompare(b.nome,'pt-BR'));
   }
   function overlaps(a, b) {
     if (a.data !== b.data) return false;

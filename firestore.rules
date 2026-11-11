@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function administrator() {
+      return signedIn()
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.perfil == 'administrador'
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.status == 'ativo';
+    }
+    function activeUser() {
+      return signedIn()
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.status == 'ativo'
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.perfil in ['administrador', 'membro'];
+    }
+    match /usuarios/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['nome', 'email', 'perfilSolicitado', 'perfil', 'status', 'criadoEm'])
+        && request.resource.data.keys().hasOnly(['nome', 'email', 'perfilSolicitado', 'perfil', 'status', 'criadoEm'])
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 120
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.perfil == 'membro'
+        && request.resource.data.perfilSolicitado in ['administrador', 'membro']
+        && ((request.resource.data.perfilSolicitado == 'administrador' && request.resource.data.status == 'pendente')
+          || (request.resource.data.perfilSolicitado == 'membro' && request.resource.data.status == 'ativo'))
+        && request.resource.data.criadoEm == request.time;
+      // Aprovação de administradores somente pelo console ou ambiente confiável.
+      allow list, update, delete: if false;
+    }
+    match /membros/{id} { allow read, write: if administrator(); }
+    match /bandas/{id} { allow read, write: if administrator(); }
+    match /celulas/{id} { allow read: if activeUser(); allow write: if administrator(); }
+    match /ministerios/{id} { allow read: if activeUser(); allow write: if administrator(); }
+    match /escalas/{id} { allow read: if activeUser(); allow write: if administrator(); }
+    match /campanhas/{id} { allow read: if activeUser(); allow write: if administrator(); }
+    match /comunidadeMembros/{id} {
+      allow read: if activeUser();
+      allow create, update: if administrator()
+        && request.resource.data.keys().hasOnly(['nome', 'ministerio', 'celula', 'banda', 'status'])
+        && request.resource.data.keys().hasAll(['nome', 'ministerio', 'celula', 'banda', 'status'])
+        && request.resource.data.nome is string && request.resource.data.ministerio is string
+        && request.resource.data.celula is string && request.resource.data.banda is string
+        && request.resource.data.status is string;
+      allow delete: if administrator();
+    }
+    match /disponibilidades/{id} {
+      function validShape() {
+        let d = request.resource.data;
+        return d.keys().hasAll(['usuarioId', 'escalaId', 'nome', 'cultoNome', 'data', 'horario', 'local', 'disponivel', 'observacao', 'atualizadoEm'])
+          && d.keys().hasOnly(['usuarioId', 'escalaId', 'nome', 'cultoNome', 'data', 'horario', 'local', 'disponivel', 'observacao', 'atualizadoEm'])
+          && d.usuarioId is string && d.escalaId is string
+          && d.nome is string && d.cultoNome is string && d.data is string
+          && d.horario is string && d.local is string && d.disponivel is bool
+          && d.observacao is string && d.observacao.size() <= 500
+          && d.atualizadoEm == request.time;
+      }
+      function ownResponse() {
+        let d = request.resource.data;
+        let e = get(/databases/$(database)/documents/escalas/$(d.escalaId)).data;
+        return d.usuarioId == request.auth.uid
+          && id == request.auth.uid + '_' + d.escalaId
+          && d.nome == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nome
+          && e.tipo == 'Culto' && e.status in ['Agendada', 'Ativa', 'Pendente']
+          && e.inicioEm is timestamp && e.inicioEm > request.time
+          && d.data == e.data && d.horario == e.horario
+          && d.cultoNome == e.nome && d.local == e.local && d.disponivel == true;
+      }
+      function cancellation() {
+        return request.resource.data.disponivel == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disponivel', 'atualizadoEm']);
+      }
+      allow read: if activeUser() && (administrator() || resource.data.usuarioId == request.auth.uid);
+      allow create: if activeUser() && validShape() && ownResponse();
+      allow update: if activeUser() && validShape()
+        && request.resource.data.usuarioId == resource.data.usuarioId
+        && request.resource.data.escalaId == resource.data.escalaId
+        && ((resource.data.usuarioId == request.auth.uid && (cancellation() || ownResponse()))
+          || (administrator() && cancellation()));
+      allow delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

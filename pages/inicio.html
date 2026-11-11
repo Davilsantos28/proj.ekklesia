@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="auth-checking">
 
 <head>
     <meta charset="UTF-8">
@@ -10,12 +10,16 @@
     <link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/inicio.css">
     <link rel="stylesheet" href="../css/gestao.css">
-    <script src="../js/dados.js" defer></script>
-    <script type="module" src="../js/gestao.js"></script>
-    <script src="../js/inicio.js" defer></script>
+
+
+
+<link rel="stylesheet" href="../css/autenticacao.css">
+<script type="module" src="../js/admin-bootstrap.js"></script>
 </head>
 
 <body class="dashboard-page">
+<p id="access-loading" class="access-loading" role="status">Verificando acesso… Se esta mensagem persistir, confira sua conexão e recarregue a página.</p>
+<noscript>Ative o JavaScript para acessar o sistema.</noscript>
 
     <div class="layout">
 
@@ -211,7 +215,7 @@
                         <div class="card-header">
                             <div><small>ORGANIZAÇÃO</small><h3 id="upcoming-title">Próximos eventos</h3></div>
                             <div class="schedule-actions">
-                                <button type="button" class="button secondary" id="open-availability" aria-haspopup="dialog" aria-controls="availability-dialog">▦ Selecionar data</button>
+                                <a class="button" href="escalas.html#disponibilidades">Ver disponibilidades dos membros</a>
                                 <a href="escalas.html">Ver todas</a>
                             </div>
                         </div>
@@ -307,29 +311,11 @@
 
     </div>
 
-<dialog id="availability-dialog" aria-labelledby="availability-title" aria-describedby="availability-note">
-    <div class="dialog-heading"><h2 id="availability-title">Selecionar data</h2><button type="button" class="icon-button" id="close-availability" aria-label="Fechar calendário">×</button></div>
-    <p class="context-note" id="availability-note">Escolha o membro para este registro local. A identificação automática dependerá do login do sistema.</p>
-    <form id="availability-form">
-        <label for="availability-member">Membro</label>
-        <select id="availability-member" required><option value="">Selecione seu cadastro</option></select>
-        <div class="availability-month"><button type="button" class="icon-button" id="previous-month" aria-label="Mês anterior">‹</button><h3 id="availability-month-title" aria-live="polite"></h3><button type="button" class="icon-button" id="next-month" aria-label="Próximo mês">›</button></div>
-        <div class="availability-weekdays" aria-hidden="true"><span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span></div>
-        <div class="availability-days" id="availability-days" role="group" aria-label="Datas de cultos disponíveis"></div>
-        <p class="context-note" id="calendar-help">Selecione um dia com culto cadastrado.</p>
-        <label for="availability-worship">Culto e horário</label>
-        <select id="availability-worship" required disabled><option value="">Selecione uma data</option></select>
-        <label for="availability-observation" class="observation-label">Observação (opcional)</label>
-        <textarea id="availability-observation" rows="2" maxlength="500" placeholder="Informe alguma observação sobre sua disponibilidade"></textarea>
-        <p class="form-error" id="availability-error" role="alert"></p>
-        <button type="submit" class="button confirm-availability" id="confirm-availability" disabled>Confirmar disponibilidade</button>
-        <p id="availability-history" class="context-note" aria-live="polite"></p>
-    </form>
-</dialog>
+
 <noscript><p class="demo-notice">Ative o JavaScript para carregar os dados do Dashboard.</p></noscript>
 <div id="toast" role="status" aria-live="polite" hidden></div>
 
-<script type="module" src="../js/firebase-config.js"></script>
+
 </body>
 
 </html>

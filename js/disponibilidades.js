@@ -1,3 +1,5 @@
+import { cancelAvailability, refreshAdminAvailability } from './community-service.js';
+import { availabilityState } from './community-model.js';
 (() => {
   'use strict';
   if (document.body.dataset.page !== 'escalas') return;
@@ -17,12 +19,8 @@
     unavailable: ['Cadastro indisponível','amber']
   };
   function entryState(record, member, scale) {
-    if (!record.disponivel) return 'cancelled';
-    if (!member || member.status !== 'Ativo' || !scale || ['Concluída','Cancelada'].includes(scale.status)) return 'unavailable';
-    if (record.data !== scale.data || record.horario !== scale.horario) return 'changed';
-    const date = schedule.scheduleDate(scale);
-    if (!date) return 'unavailable';
-    return date <= new Date() ? 'past' : 'available';
+    const label = availabilityState(record, scale);
+    return ({ 'Confirmada': 'available', 'Cancelada': 'cancelled', 'Reconfirmar': 'changed', 'Data passada': 'past' })[label] || 'unavailable';
   }
   function scaleLabel(scale) {
     return scale.nome + ' • ' + formatDate(scale.data) + ' • ' + scale.horario + ' • ' + scale.local;
@@ -58,7 +56,7 @@
         '<td>'+formatDate(record.data)+' • '+escape(record.horario)+updated+'</td><td>'+escape(member?.ministerio || 'Não informado')+'</td>'+
         '<td class="availability-observation">'+escape(record.observacao || 'Sem observação')+'</td>'+
         '<td><span class="badge '+color+'">'+label+'</span></td><td>'+(record.disponivel?'<button type="button" class="button secondary danger" data-cancel-availability="'+escape(record.id)+'" aria-label="Cancelar disponibilidade de '+escape(memberName)+' para '+escape(scaleName)+'">Cancelar</button>':'—')+'</td></tr>';
-    }).join('') : '<tr><td colspan="7" class="empty-state"><strong>Nenhuma disponibilidade encontrada</strong>'+ (entries.length?'Ajuste os filtros ou registre uma disponibilidade no Início.':'Registre uma disponibilidade no Início, selecionando membro, data e culto.')+'</td></tr>';
+    }).join('') : '<tr><td colspan="7" class="empty-state"><strong>Nenhuma disponibilidade encontrada</strong>'+ (entries.length?'Ajuste os filtros ou atualize a lista.':'As respostas enviadas pelos membros aparecerão aqui.')+'</td></tr>';
     const valid = entries.filter(entry=>entry.state==='available' && (!scaleId || entry.record.id_escala===scaleId));
     const total = new Set(valid.map(entry=>entry.record.id_membro)).size;
     const scale = scales.find(row=>row.id===scaleId);
@@ -69,12 +67,14 @@
   function refresh() {
     try {
       const data = store.load();
-      const members = new Map(data.membros.map(member=>[member.id,member]));
+
       scales = data.escalas;
       const scaleMap = new Map(scales.map(scale=>[scale.id,scale]));
       entries = store.loadAvailability().map(record=>{
-        const member = members.get(record.id_membro);
-        const scale = scaleMap.get(record.id_escala);
+        record.id_membro = record.usuarioId;
+        record.id_escala = record.escalaId;
+        const member = { nome: record.nome, ministerio: 'Conta de membro', status: 'Ativo' };
+        const scale = scaleMap.get(record.escalaId);
         return {record,member,scale,state:entryState(record,member,scale)};
       }).sort((a,b)=>(a.record.data+a.record.horario).localeCompare(b.record.data+b.record.horario) || (a.member?.nome || '').localeCompare(b.member?.nome || '','pt-BR'));
       loadFailed = false;
@@ -82,7 +82,7 @@
       loadFilters(); render();
     } catch {
       loadFailed = true;
-      $('#availability-list-error').textContent = 'Não foi possível ler as disponibilidades locais. Os registros salvos não foram alterados. Reabra a aba para tentar novamente.';
+      $('#availability-list-error').textContent = 'Não foi possível ler as disponibilidades da comunidade. Os registros salvos não foram alterados. Reabra a aba para tentar novamente.';
       $('#availability-list-error').hidden = false;
       $('#availabilities-table tbody').innerHTML = '';
       $('#availability-result-count').textContent = 'Dados indisponíveis';
@@ -106,9 +106,10 @@
     $('#dialog-title').textContent = 'Cancelar disponibilidade';
     $('#dialog-content').innerHTML = '<p class="context-note">Cancelar a disponibilidade de '+escape(entry.member?.nome || 'membro removido')+' para '+escape(entry.scale?.nome || 'escala removida')+', em '+formatDate(entry.record.data)+' às '+escape(entry.record.horario)+'? O registro continuará no histórico como cancelado.</p><p class="form-error" id="cancellation-error" role="alert"></p><div class="dialog-actions"><button type="button" class="button secondary" id="keep-availability">Voltar</button><button type="button" class="button danger secondary" id="confirm-cancellation">Cancelar disponibilidade</button></div>';
     $('#keep-availability').onclick = ()=>dialog.close();
-    $('#confirm-cancellation').onclick = ()=>{
-      try { store.cancelAvailability(id); dialog.close(); refresh(); }
-      catch (error) { $('#cancellation-error').textContent = error.message || 'Não foi possível cancelar. Tente novamente.'; }
+    $('#confirm-cancellation').onclick = async ()=>{
+      $('#confirm-cancellation').disabled = true;
+      try { await cancelAvailability(id); await refreshAdminAvailability(); dialog.close(); refresh(); }
+      catch (error) { $('#cancellation-error').textContent = 'Não foi possível cancelar. Confira a conexão e tente novamente.'; $('#confirm-cancellation').disabled = false; }
     };
     dialog.showModal();
     $('#keep-availability').focus();
@@ -141,9 +142,13 @@
     if (button) requestCancellation(button.dataset.cancelAvailability);
   });
   store.subscribe(refresh);
-  window.addEventListener('focus',refresh);
-  window.addEventListener('pageshow',refresh);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
+  $('#refresh-availabilities').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try { await refreshAdminAvailability(); refresh(); }
+    catch { $('#availability-list-error').hidden = false; $('#availability-list-error').textContent = 'Não foi possível atualizar. A lista mantém a última leitura.'; }
+    finally { button.disabled = false; }
+  });
   refresh();
   if (window.location.hash === '#disponibilidades') openScaleAvailability(new URLSearchParams(window.location.search).get('escala'));
 })();

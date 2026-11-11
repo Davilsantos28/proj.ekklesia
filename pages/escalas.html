@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="auth-checking">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,13 +7,16 @@
 <link rel="stylesheet" href="../css/global.css">
 <link rel="stylesheet" href="../css/inicio.css">
 <link rel="stylesheet" href="../css/gestao.css">
-<script src="../js/dados.js" defer>
-</script>
-<script type="module" src="../js/gestao.js"></script>
-</script>
-<script src="../js/disponibilidades.js" defer></script>
+
+
+
+
+<link rel="stylesheet" href="../css/autenticacao.css">
+<script type="module" src="../js/admin-bootstrap.js"></script>
 </head>
 <body data-page="escalas">
+<p id="access-loading" class="access-loading" role="status">Verificando acesso… Se esta mensagem persistir, confira sua conexão e recarregue a página.</p>
+<noscript>Ative o JavaScript para acessar o sistema.</noscript>
 <a class="skip-link" href="#page-content">Ir para o conteúdo</a>
     <div class="layout">
 
@@ -147,7 +150,7 @@
 <button type="button" class="button" id="add-record">＋ Nova Escala</button>
 </div>
 </div>
-<p class="demo-notice">Demonstração • dados fictícios, salvos apenas neste navegador. Utilize informações de teste.</p>
+<p class="demo-notice">Dados compartilhados da comunidade • alterações administrativas são salvas no Firebase.</p>
 <div class="stats-grid" id="module-stats" aria-label="Indicadores">
 </div>
 <div class="status-tabs" role="group" aria-label="Visualização de Escalas">
@@ -164,13 +167,13 @@
 </div>
 <button class="button secondary" type="reset">Limpar filtros</button>
 </form>
-<p class="context-note">As escalas são preenchidas manualmente nesta demonstração. Sugestões por IA e validação de disponibilidades serão integradas em uma etapa futura.</p>
+<p class="context-note">Cadastre o tipo Culto para receber disponibilidades dos membros. As sugestões por IA serão integradas em uma etapa futura.</p>
 <div class="status-tabs" id="status-tabs" aria-label="Filtrar escalas por status">
 </div>
 <section class="table-panel" aria-label="Listagem de escalas">
 <div class="table-scroll">
 <table id="records-table">
-<caption class="sr-only">Escalas da comunidade — dados demonstrativos</caption>
+<caption class="sr-only">Escalas da comunidade — dados da comunidade</caption>
 <thead>
 </thead>
 <tbody>
@@ -190,10 +193,10 @@
 <section id="availabilities-view" aria-labelledby="availabilities-title" hidden>
     <div class="availability-heading">
         <div><h3 id="availabilities-title">Disponibilidades dos membros</h3><p class="context-note">Consulte quem informou disponibilidade para cada escala. Disponibilidade não significa que o membro já foi escalado.</p></div>
-        <a class="button secondary" href="inicio.html">Registrar no Início</a>
+        <button type="button" class="button secondary" id="refresh-availabilities">Atualizar disponibilidades</button>
     </div>
     <form class="filters" id="availability-filters" role="search" aria-label="Filtrar disponibilidades">
-        <div class="search-field"><label for="availability-search">Membro ou observação</label><input type="search" id="availability-search" placeholder="Buscar por nome, ministério ou observação…"></div>
+        <div class="search-field"><label for="availability-search">Membro ou observação</label><input type="search" id="availability-search" placeholder="Buscar por nome ou observação…"></div>
         <div class="filter-fields">
             <div><label for="availability-scale-filter">Escala / culto</label><select id="availability-scale-filter"><option value="">Todas as escalas</option></select></div>
             <div><label for="availability-state-filter">Situação</label><select id="availability-state-filter"><option value="">Todas</option><option value="available">Disponível</option><option value="cancelled">Cancelada</option><option value="changed">Reconfirmar</option><option value="past">Data passada</option><option value="unavailable">Cadastro indisponível</option></select></div>
@@ -212,7 +215,7 @@
         </div>
         <div class="table-footer"><p id="availability-result-count" aria-live="polite"></p><nav id="availability-pagination" aria-label="Paginação das disponibilidades"></nav></div>
     </section>
-    <p class="context-note availability-footnote">Registros locais deste navegador. O ministério vem do cadastro do membro; uma função específica ainda não é definida na disponibilidade.</p>
+    <p class="context-note availability-footnote">Respostas da comunidade deste navegador. O ministério vem do cadastro do membro; uma função específica ainda não é definida na disponibilidade.</p>
 </section>
 
 </section>

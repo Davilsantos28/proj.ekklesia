@@ -1,0 +1,70 @@
+:root { --green: #195735; --ink: #203e2c; --muted: #617366; --line: #dce4db; }
+body { background: #f6f7f2; color: var(--ink); }
+[hidden] { display: none !important; }
+a { color: var(--green); text-underline-offset: 4px; }
+button, input, select, textarea { font: inherit; }
+button, .button { cursor: pointer; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+:focus-visible { outline: 3px solid #99b86b; outline-offset: 3px; }
+.loading { padding: 60px 24px; text-align: center; }
+.portal-header { background: white; display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 20px max(24px, calc((100% - 1160px) / 2)); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; font-family: Georgia, serif; font-size: 26px; font-weight: bold; }
+.brand img { width: 54px; height: 54px; object-fit: contain; }
+.brand small { display: block; font: 11px Arial, sans-serif; letter-spacing: .5px; margin-top: 4px; }
+.account { display: flex; align-items: center; gap: 12px; font-size: 14px; }
+.tag { display: inline-block; padding: 5px 10px; border-radius: 30px; font-size: 12px; background: #edf3e7; color: #3e5e32; }
+.quiet { border: 1px solid var(--line); background: white; color: var(--green); border-radius: 7px; padding: 9px 13px; }
+.portal-nav { display: flex; gap: 28px; max-width: 1208px; padding: 0 24px; margin: auto; overflow-x: auto; }
+.portal-nav a { flex-shrink: 0; padding: 22px 0 18px; text-decoration: none; color: var(--muted); border-bottom: 3px solid transparent; font-size: 14px; }
+.portal-nav a[aria-current] { border-color: var(--green); color: var(--green); font-weight: bold; }
+.portal-main { max-width: 1208px; padding: 26px 24px 70px; margin: auto; min-height: 70vh; }
+.page-top, .section-title, .dialog-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.eyebrow { font-size: 11px; letter-spacing: 1.7px; color: var(--muted); margin-bottom: 8px; }
+.welcome { background: #e8eee0; border-radius: 18px; padding: 40px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border: 1px solid #dce6d2; }
+h1 { font-family: Georgia, serif; font-size: 34px; line-height: 1.25; font-weight: normal; }
+h2 { font-size: 21px; line-height: 1.35; }
+h3 { font-size: 19px; line-height: 1.4; }
+.welcome p { margin: 18px 0 24px; line-height: 1.6; max-width: 530px; color: #52654a; }
+.welcome-mark { font-size: 130px; color: #a9ba8c; padding-right: 36px; }
+.button { display: inline-block; background: var(--green); color: white; padding: 13px 18px; border: 0; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 600; text-align: center; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 22px 0 34px; }
+.stat { border: 1px solid var(--line); padding: 19px 22px; background: white; border-radius: 12px; }
+.stat strong { font-family: Georgia, serif; font-size: 29px; display: block; margin-bottom: 5px; }
+.stat span { color: var(--muted); font-size: 13px; }
+.card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 24px; min-width: 0; overflow-wrap: anywhere; }
+.card h3 { margin: 14px 0 10px; }
+.card p { line-height: 1.6; color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+.card .button, .card .quiet { margin-top: 12px; }
+.intro { color: var(--muted); margin: 12px 0 28px; line-height: 1.6; }
+.hint { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 10px 0 18px; }
+.empty { padding: 26px; border: 1px dashed #bdcbb9; border-radius: 10px; color: var(--muted); grid-column: 1 / -1; line-height: 1.6; }
+.search-label { display: block; max-width: 460px; margin: 0 0 24px; font-size: 14px; }
+input, select, textarea { display: block; width: 100%; padding: 12px; margin: 9px 0 20px; border: 1px solid #c7d3c4; border-radius: 7px; background: white; color: var(--ink); }
+textarea { resize: vertical; }
+.availability-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 28px; align-items: start; }
+.availability-layout h2 { margin-bottom: 12px; }
+.history-item { margin: 14px 0; }
+.history-item .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.portal-footer { border-top: 1px solid var(--line); text-align: center; color: var(--muted); padding: 26px; font-size: 13px; }
+#portal-message, #availability-message { padding: 14px; margin-bottom: 20px; border-radius: 8px; background: #fff0e7; color: #813c24; line-height: 1.5; }
+[data-kind="success"] { background: #eaf3e3 !important; color: #265735 !important; }
+dialog { margin: auto; padding: 28px; border: 1px solid var(--line); border-radius: 14px; width: min(560px, calc(100% - 32px)); max-height: 85vh; color: var(--ink); }
+dialog::backdrop { background: #173d2266; }
+.participant-list { list-style: none; }
+.participant-list li { padding: 13px 0; border-bottom: 1px solid var(--line); }
+.participant-list small { display: block; color: var(--muted); margin-top: 5px; }
+.pix-key { padding: 14px; background: #f1f4ed; border-radius: 8px; overflow-wrap: anywhere; user-select: all; }
+.donation-instructions { white-space: pre-wrap; line-height: 1.6; margin: 16px 0; }
+progress { width: 100%; height: 8px; accent-color: var(--green); margin: 10px 0; }
+@media (max-width: 960px) { .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .welcome-mark { display: none; } }
+@media (max-width: 640px) {
+  .portal-header { padding: 16px; align-items: flex-start; flex-direction: column; gap: 14px; }
+  .account { width: 100%; } .account #logout { margin-left: auto; }
+  .portal-nav { padding: 0 16px; gap: 24px; }
+  .portal-main { padding: 20px 16px 40px; } .welcome { padding: 26px 22px; } h1 { font-size: 29px; }
+  .stats { gap: 8px; } .stat { padding: 14px 10px; } .stat strong { font-size: 25px; }
+  .card-grid, .availability-layout { grid-template-columns: 1fr; }
+  .section-title { align-items: flex-start; flex-direction: column; }
+  .section-title a { font-size: 14px; } .page-top .eyebrow { font-size: 9px; }
+}

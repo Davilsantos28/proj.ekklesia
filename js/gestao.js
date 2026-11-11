@@ -1,14 +1,4 @@
-import './dados.js';
-import { db } from './firebase-config.js';
-
-import {
-  collection,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc
-} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { adminData, saveRecord, removeRecord, optionalField, publishExistingMembers } from './community-service.js';
 
 (() => {
   'use strict';
@@ -114,124 +104,9 @@ import {
 
   if (!key || !window.Ekklesia) return;
 
-  const { schemas, seed } = window.Ekklesia;
-  const store = window.Ekklesia.store;
-
-  let data = JSON.parse(JSON.stringify(seed));
-
-  const membrosRef = collection(db, 'membros');
-
-  let bandas = [];
-
-  // ==========================================
-  // CARREGAR BANDAS DO FIRESTORE
-  // ==========================================
-
-  async function carregarBandasFirestore() {
-    try {
-      const snapshot = await getDocs(collection(db, 'bandas'));
-
-      bandas = snapshot.docs.map(documento => ({
-        id: documento.id,
-        ...documento.data()
-      }));
-
-      console.log(
-        '🎸 Bandas carregadas do Firestore:',
-        bandas
-      );
-    } catch (erro) {
-      console.error('Erro ao carregar bandas:', erro);
-    }
-  }
-
-  // ==========================================
-  // CARREGAR MEMBROS DO FIRESTORE
-  // ==========================================
-
-  async function carregarMembrosFirestore() {
-    try {
-      const snapshot = await getDocs(membrosRef);
-
-      data.membros = snapshot.docs.map(documento => ({
-        id: documento.id,
-        ...documento.data()
-      }));
-
-      renderFilters();
-      render();
-
-      console.log(
-        '🔥 Membros carregados do Firestore:',
-        data.membros
-      );
-    } catch (erro) {
-      console.error('Erro ao carregar membros:', erro);
-
-      notify(
-        'Não foi possível carregar os membros do Firestore.'
-      );
-    }
-  }
-
-  // ==========================================
-  // CARREGAR CÉLULAS DO FIRESTORE
-  // ==========================================
-
-  async function carregarCelulasFirestore() {
-    try {
-      const snapshot = await getDocs(collection(db, 'celulas'));
-
-      data.celulas = snapshot.docs.map(documento => ({
-        id: documento.id,
-        ...documento.data()
-      }));
-
-      renderFilters();
-      render();
-
-      console.log(
-        '🔥 Células carregadas do Firestore:',
-        data.celulas
-      );
-    } catch (erro) {
-      console.error('Erro ao carregar células:', erro);
-
-      notify(
-        'Não foi possível carregar as células do Firestore.'
-      );
-    }
-  }
-
-  // ==========================================
-  // DADOS LOCAIS
-  // ==========================================
-
-  try {
-    data = store.load();
-  } catch {
-    notify(
-      'Não foi possível ler os dados locais. Os exemplos foram carregados apenas para visualização.'
-    );
-  }
-
-  function persist() {
-    try {
-      if (key === 'configuracoes') {
-        store.reset();
-      } else {
-        store.saveModule(key, data[key]);
-      }
-
-      return true;
-    } catch {
-      notify(
-        'Não foi possível salvar a alteração. Verifique o armazenamento local antes de sair desta página.'
-      );
-
-      return false;
-    }
-  }
+  const { schemas } = window.Ekklesia;
+  let data = adminData();
+  const bandas = data.bandas;
 
   const dialog = $('#record-dialog');
 
@@ -277,7 +152,7 @@ import {
 
     if (module === 'membros') {
       return [
-        [rows.length, 'Membros', 'Total de registros locais', '♙'],
+        [rows.length, 'Membros', 'Total de registros', '♙'],
         [active, 'Ativos', 'Na listagem de membros', '✓'],
         [rows.length - active, 'Inativos', 'Na listagem de membros', '○'],
         [
@@ -671,18 +546,13 @@ import {
       form.elements.comunidade.setCustomValidity('');
     });
 
-    $('#reset-demo').onclick = () =>
-      confirmAction(
-        'Restaurar dados de exemplo',
-        'Todos os cadastros e alterações locais dos módulos serão substituídos pelos exemplos iniciais. As disponibilidades locais também serão removidas.',
-        () => {
-          data = JSON.parse(JSON.stringify(seed));
-
-          if (persist()) {
-            notify('Dados demonstrativos restaurados.');
-          }
-        }
-      );
+    $('#publish-members').onclick = async () => {
+      const button = $('#publish-members');
+      button.disabled = true;
+      try { const total = await publishExistingMembers(); notify(total + ' membros publicados na área da comunidade.'); }
+      catch { notify('Não foi possível publicar. Confira as regras do Firebase e tente novamente.'); }
+      finally { button.disabled = false; }
+    };
 
     return;
   }
@@ -742,7 +612,7 @@ import {
 
       link.href = url;
       link.download =
-        'ekklesia-' + module + '-demonstracao.csv';
+        'ekklesia-' + module + '.csv';
 
       document.body.append(link);
       link.click();
@@ -750,7 +620,7 @@ import {
 
       setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-      notify('Relatório demonstrativo exportado.');
+      notify('Relatório exportado.');
     };
 
     renderReport();
@@ -1286,10 +1156,18 @@ import {
         '<div class="form-grid">' +
           schema.fields.map(([field, title, type = 'text', options]) => {
             const value = row?.[field] ?? (type === 'number' ? 0 : '');
+            if (field === 'ministerio' && key !== 'ministerios') {
+              options = [...new Set([...(options || []), ...data.ministerios.map(item => item.nome), ...(row?.ministerio ? [row.ministerio] : [])])];
+            }
+            if (field === 'celula' && key === 'membros') {
+              type = 'select';
+              options = [...new Set(['Sem célula', ...data.celulas.map(item => item.nome), ...(row?.celula ? [row.celula] : [])])];
+            }
+
 
             const attributes =
               'id="record-' + field + '" name="' + field + '" ' +
-              (type === 'textarea' ? '' : 'required');
+              (optionalField(field, type) ? '' : 'required');
 
             const input =
               type === 'select'
@@ -1401,7 +1279,7 @@ import {
       for (const [field, , type] of schema.fields) {
         record[field] = type === 'number'
           ? Number(form.get(field))
-          : String(form.get(field)).trim();
+          : String(form.get(field) ?? '').trim();
       }
 
       if (key === 'membros') {
@@ -1438,11 +1316,7 @@ import {
 } else {
 
   if (
-    schema.fields.some(([field, type]) =>
-      type !== 'textarea' &&
-      type !== 'banda' &&
-      !record[field]
-    )
+    schema.fields.some(([field, , type]) => !optionalField(field, type) && (type === 'number' ? !Number.isFinite(record[field]) || record[field] < 0 : !record[field]))
   ) {
     $('#form-error').textContent =
       'Preencha os campos obrigatórios com informações válidas.';
@@ -1463,163 +1337,19 @@ import {
         return;
       }
 
+      const submit = event.target.querySelector('[type="submit"]');
+      if (submit.disabled) return;
+      submit.disabled = true;
       try {
-        // ======================================
-        // SALVAR CÉLULAS NO FIRESTORE
-        // ======================================
+        await saveRecord(key, record, Boolean(row));
+        data = adminData();
+        if (!row) { $('#filters').reset(); page = 1; }
+        dialog.close(); renderFilters(); render();
+        notify('Registro salvo no Firebase.');
+      } catch (error) {
+        $('#form-error').textContent = error.code ? 'Não foi possível salvar. Confira sua conexão e as regras do Firebase.' : error.message;
+      } finally { submit.disabled = false; }
 
-        if (key === 'celulas') {
-          const celulaFirestore = {
-            nome: record.nome,
-            lider: record.lider,
-            dia: record.dia,
-            horario: record.horario,
-            local: record.local,
-            status: record.status
-          };
-
-          if (row) {
-            await updateDoc(
-              doc(db, 'celulas', row.id),
-              celulaFirestore
-            );
-
-            const index = data.celulas.findIndex(
-              item => item.id === row.id
-            );
-
-            if (index >= 0) {
-              data.celulas[index] = {
-                id: row.id,
-                ...celulaFirestore
-              };
-            }
-
-            notify('Célula atualizada com sucesso!');
-          } else {
-            const documento = await addDoc(
-              collection(db, 'celulas'),
-              celulaFirestore
-            );
-
-            data.celulas.unshift({
-              id: documento.id,
-              ...celulaFirestore
-            });
-
-            notify('Célula cadastrada com sucesso!');
-          }
-
-          $('#filters').reset();
-          page = 1;
-          dialog.close();
-          renderFilters();
-          render();
-
-          return;
-        }
-
-        // ======================================
-        // SALVAR MEMBROS NO FIRESTORE
-        // ======================================
-
-        if (key === 'membros') {
-          const membroFirestore = {
-            nome: record.nome,
-            email: record.email,
-            telefone: record.telefone,
-            ministerio: record.ministerio,
-            banda: record.banda || '',
-            celula: record.celula,
-            status: record.status,
-            dataEntrada: record.dataEntrada,
-            dataNascimento: record.dataNascimento
-          };
-
-          if (row) {
-            await updateDoc(
-              doc(db, 'membros', row.id),
-              membroFirestore
-            );
-
-            const index = data.membros.findIndex(
-              item => item.id === row.id
-            );
-
-            if (index >= 0) {
-              data.membros[index] = {
-                id: row.id,
-                ...membroFirestore
-              };
-            }
-
-            notify('Membro atualizado com sucesso!');
-          } else {
-            const documento = await addDoc(
-              membrosRef,
-              membroFirestore
-            );
-
-            data.membros.unshift({
-              id: documento.id,
-              ...membroFirestore
-            });
-
-            notify('Membro cadastrado com sucesso!');
-          }
-
-          $('#filters').reset();
-          page = 1;
-          dialog.close();
-          renderFilters();
-          render();
-
-          return;
-        }
-
-        // ======================================
-        // OUTROS MÓDULOS: ARMAZENAMENTO LOCAL
-        // ======================================
-
-        if (row) {
-          const index = data[key].findIndex(
-            item => item.id === row.id
-          );
-
-          if (index >= 0) {
-            data[key][index] = record;
-          }
-        } else {
-          data[key].unshift(record);
-          $('#filters').reset();
-          page = 1;
-        }
-
-        const saved = persist();
-
-        dialog.close();
-        renderFilters();
-        render();
-
-        if (saved) {
-          notify(
-            schema.singular +
-            (schema.article === 'Nova'
-              ? ' atualizada.'
-              : ' cadastrado.') +
-            ' na demonstração local.'
-          );
-        }
-      } catch (erro) {
-        console.error('Erro ao salvar registro:', erro);
-
-        $('#form-error').textContent =
-          key === 'membros'
-            ? 'Não foi possível salvar o membro no Firestore.'
-            : key === 'celulas'
-              ? 'Não foi possível salvar a célula no Firestore.'
-              : 'Não foi possível salvar o registro.';
-      }
     });
 
     dialog.showModal();
@@ -1756,75 +1486,18 @@ import {
       confirmAction(
         'Excluir ' + schema.singular.toLowerCase(),
 
-        ['membros', 'celulas'].includes(key)
-          ? 'Deseja excluir "' + row.nome +
-            '"? Esta ação será realizada no Firestore.'
-          : 'Deseja excluir "' + row.nome +
-            '" desta demonstração? Os outros módulos não serão alterados.',
-
+        'Deseja excluir "' + row.nome + '"? O registro será removido do Firebase.',
         async () => {
+          const button = $('#confirm-action');
+          button.disabled = true;
           try {
-            // EXCLUIR CÉLULA DO FIRESTORE
-            if (key === 'celulas') {
-              await deleteDoc(
-                doc(db, 'celulas', row.id)
-              );
-
-              data.celulas = data.celulas.filter(
-                celula => celula.id !== row.id
-              );
-
-              renderFilters();
-              render();
-
-              notify('Célula excluída com sucesso!');
-              return;
-            }
-
-            // EXCLUIR MEMBRO DO FIRESTORE
-            if (key === 'membros') {
-              await deleteDoc(
-                doc(db, 'membros', row.id)
-              );
-
-              data.membros = data.membros.filter(
-                membro => membro.id !== row.id
-              );
-
-              renderFilters();
-              render();
-
-              notify('Membro excluído com sucesso!');
-              return;
-            }
-
-            // EXCLUIR DOS OUTROS MÓDULOS
-            data[key] = data[key].filter(
-              item => item.id !== row.id
-            );
-
-            const saved = persist();
-
-            renderFilters();
-            render();
-
-            if (saved) {
-              notify(
-                'Registro excluído da demonstração local.'
-              );
-            }
-          } catch (erro) {
-            console.error('Erro ao excluir registro:', erro);
-
-            notify(
-              key === 'membros'
-                ? 'Não foi possível excluir o membro do Firestore.'
-                : key === 'celulas'
-                  ? 'Não foi possível excluir a célula do Firestore.'
-                  : 'Não foi possível excluir o registro.'
-            );
-          }
+            await removeRecord(key, row.id);
+            data = adminData(); renderFilters(); render();
+            notify('Registro excluído do Firebase.');
+          } catch { notify('Não foi possível excluir. Confira sua conexão e as regras do Firebase.'); }
+          finally { button.disabled = false; }
         }
+
       );
     }
   });
@@ -1836,19 +1509,4 @@ import {
   renderFilters();
   render();
 
-  if (
-    key === 'membros' ||
-    key === 'ministerios' ||
-    key === 'celulas'
-  ) {
-    carregarMembrosFirestore();
-  }
-
-  if (key === 'celulas') {
-    carregarCelulasFirestore();
-  }
-
-  if (key === 'membros') {
-    carregarBandasFirestore();
-  }
 })();
