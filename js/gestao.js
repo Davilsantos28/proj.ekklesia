@@ -1,0 +1,1854 @@
+import './dados.js';
+import { db } from './firebase-config.js';
+
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc
+} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+
+(() => {
+  'use strict';
+
+  const $ = (selector, parent = document) =>
+    parent.querySelector(selector);
+
+  const $$ = (selector, parent = document) =>
+    [...parent.querySelectorAll(selector)];
+
+  const escape = value =>
+    String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char]));
+
+  const normalize = value =>
+    String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  let toastTimer;
+
+  function notify(message) {
+    const toast = $('#toast');
+
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.hidden = false;
+
+    clearTimeout(toastTimer);
+
+    toastTimer = setTimeout(() => {
+      toast.hidden = true;
+    }, 6500);
+  }
+
+  const layout = $('.layout');
+  const menu = $('.menu-button');
+  const mobile = matchMedia('(max-width: 700px)');
+
+  function syncMenu() {
+    layout?.classList.remove('menu-open', 'menu-collapsed');
+    menu?.setAttribute('aria-expanded', String(!mobile.matches));
+  }
+
+  syncMenu();
+
+  mobile.addEventListener('change', syncMenu);
+
+  menu?.addEventListener('click', () => {
+    const open = mobile.matches
+      ? layout.classList.toggle('menu-open')
+      : !layout.classList.toggle('menu-collapsed');
+
+    menu.setAttribute('aria-expanded', String(open));
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && mobile.matches) {
+      layout?.classList.remove('menu-open');
+      menu?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('click', event => {
+    if (
+      mobile.matches &&
+      layout?.classList.contains('menu-open') &&
+      !event.target.closest('.sidebar, .menu-button')
+    ) {
+      layout.classList.remove('menu-open');
+      menu.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  $('.notification-button')?.addEventListener('click', () => {
+    notify('Não há notificações nesta demonstração.');
+  });
+
+  const settingsKey = 'ekklesia.apresentacao.v1';
+
+  try {
+    const settings = JSON.parse(
+      localStorage.getItem(settingsKey) || '{}'
+    );
+
+    if (settings.comunidade) {
+      $('.sidebar-logo span').textContent = settings.comunidade;
+    }
+  } catch {
+    // Mantém a identificação padrão.
+  }
+
+  const key = document.body.dataset.page;
+
+  if (!key || !window.Ekklesia) return;
+
+  const { schemas, seed } = window.Ekklesia;
+  const store = window.Ekklesia.store;
+
+  let data = JSON.parse(JSON.stringify(seed));
+
+  const membrosRef = collection(db, 'membros');
+
+  let bandas = [];
+
+  // ==========================================
+  // CARREGAR BANDAS DO FIRESTORE
+  // ==========================================
+
+  async function carregarBandasFirestore() {
+    try {
+      const snapshot = await getDocs(collection(db, 'bandas'));
+
+      bandas = snapshot.docs.map(documento => ({
+        id: documento.id,
+        ...documento.data()
+      }));
+
+      console.log(
+        '🎸 Bandas carregadas do Firestore:',
+        bandas
+      );
+    } catch (erro) {
+      console.error('Erro ao carregar bandas:', erro);
+    }
+  }
+
+  // ==========================================
+  // CARREGAR MEMBROS DO FIRESTORE
+  // ==========================================
+
+  async function carregarMembrosFirestore() {
+    try {
+      const snapshot = await getDocs(membrosRef);
+
+      data.membros = snapshot.docs.map(documento => ({
+        id: documento.id,
+        ...documento.data()
+      }));
+
+      renderFilters();
+      render();
+
+      console.log(
+        '🔥 Membros carregados do Firestore:',
+        data.membros
+      );
+    } catch (erro) {
+      console.error('Erro ao carregar membros:', erro);
+
+      notify(
+        'Não foi possível carregar os membros do Firestore.'
+      );
+    }
+  }
+
+  // ==========================================
+  // CARREGAR CÉLULAS DO FIRESTORE
+  // ==========================================
+
+  async function carregarCelulasFirestore() {
+    try {
+      const snapshot = await getDocs(collection(db, 'celulas'));
+
+      data.celulas = snapshot.docs.map(documento => ({
+        id: documento.id,
+        ...documento.data()
+      }));
+
+      renderFilters();
+      render();
+
+      console.log(
+        '🔥 Células carregadas do Firestore:',
+        data.celulas
+      );
+    } catch (erro) {
+      console.error('Erro ao carregar células:', erro);
+
+      notify(
+        'Não foi possível carregar as células do Firestore.'
+      );
+    }
+  }
+
+  // ==========================================
+  // DADOS LOCAIS
+  // ==========================================
+
+  try {
+    data = store.load();
+  } catch {
+    notify(
+      'Não foi possível ler os dados locais. Os exemplos foram carregados apenas para visualização.'
+    );
+  }
+
+  function persist() {
+    try {
+      if (key === 'configuracoes') {
+        store.reset();
+      } else {
+        store.saveModule(key, data[key]);
+      }
+
+      return true;
+    } catch {
+      notify(
+        'Não foi possível salvar a alteração. Verifique o armazenamento local antes de sair desta página.'
+      );
+
+      return false;
+    }
+  }
+
+  const dialog = $('#record-dialog');
+
+  $('[data-close]', dialog)?.addEventListener('click', () => {
+    dialog.close();
+  });
+
+  const date = value =>
+    /^\d{4}-\d{2}-\d{2}$/.test(value)
+      ? value.split('-').reverse().join('/')
+      : '—';
+
+  const number = value =>
+    Number(value).toLocaleString('pt-BR');
+
+  const sum = (rows, field) =>
+    rows.reduce(
+      (total, row) => total + Number(row[field] || 0),
+      0
+    );
+
+  function cards(items) {
+    return items.map(([value, label, note, icon]) =>
+      '<div class="stat-card">' +
+        '<span class="stat-icon" aria-hidden="true">' +
+          icon +
+        '</span>' +
+        '<div>' +
+          '<strong>' + escape(value) + '</strong>' +
+          '<span>' + label + '</span>' +
+          '<small>' + note + '</small>' +
+        '</div>' +
+      '</div>'
+    ).join('');
+  }
+
+  function stats(module) {
+    const rows = data[module];
+
+    const active = rows.filter(row =>
+      ['Ativo', 'Ativa', 'Em andamento'].includes(row.status)
+    ).length;
+
+    if (module === 'membros') {
+      return [
+        [rows.length, 'Membros', 'Total de registros locais', '♙'],
+        [active, 'Ativos', 'Na listagem de membros', '✓'],
+        [rows.length - active, 'Inativos', 'Na listagem de membros', '○'],
+        [
+          new Set(rows.map(r => r.ministerio)).size,
+          'Ministérios representados',
+          'Nos registros de membros',
+          '♧'
+        ]
+      ];
+    }
+
+    if (module === 'ministerios') {
+      const totalVinculos = rows.reduce(
+        (total, ministerio) =>
+          total +
+          data.membros.filter(
+            membro =>
+              normalize(membro.ministerio) ===
+              normalize(ministerio.nome)
+          ).length,
+        0
+      );
+
+      return [
+        [rows.length, 'Ministérios', 'Total cadastrados', '♧'],
+        [
+          number(totalVinculos),
+          'Membros vinculados',
+          'Contagem automática pelos membros cadastrados',
+          '♙'
+        ],
+        [active, 'Ativos', 'Ministérios em atividade', '✓'],
+        [
+          new Set(rows.map(r => r.area)).size,
+          'Áreas',
+          'Áreas de atuação',
+          '▤'
+        ]
+      ];
+    }
+
+    if (module === 'celulas') {
+      const totalParticipantes = rows.reduce(
+        (total, celula) =>
+          total +
+          data.membros.filter(
+            membro =>
+              normalize(membro.celula) === normalize(celula.nome)
+          ).length,
+        0
+      );
+
+      return [
+        [rows.length, 'Células', 'Total cadastradas', '♧'],
+        [
+          number(totalParticipantes),
+          'Participantes',
+          'Contagem automática pelos membros cadastrados',
+          '♙'
+        ],
+        [
+          new Set(rows.map(r => r.lider)).size,
+          'Líderes',
+          'Líderes distintos',
+          '♙'
+        ],
+        [
+          active,
+          'Células ativas',
+          'Na listagem de células',
+          '✓'
+        ]
+      ];
+    }
+
+    if (module === 'escalas') {
+      return [
+        [rows.length, 'Escalas', 'Total cadastradas', '▦'],
+        [
+          number(sum(rows, 'servicos')),
+          'Serviços previstos',
+          'Informados manualmente',
+          '♙'
+        ],
+        [
+          rows.filter(r => r.status === 'Agendada').length,
+          'Agendadas',
+          'Aguardando realização',
+          '▦'
+        ],
+        [
+          rows.filter(r => r.status === 'Pendente').length,
+          'Pendentes',
+          'Precisam de atenção',
+          '○'
+        ]
+      ];
+    }
+
+    return [
+      [rows.length, 'Campanhas', 'Total cadastradas', '♡'],
+      [active, 'Em andamento', 'Campanhas ativas', '▣'],
+      [
+        rows.filter(r => r.status === 'Concluída').length,
+        'Concluídas',
+        'Campanhas finalizadas',
+        '✓'
+      ],
+      [
+        rows.filter(r => r.status === 'Planejada').length,
+        'Planejadas',
+        'A iniciar',
+        '○'
+      ]
+    ];
+  }
+
+  function label(module, field) {
+    if (field === 'periodo') return 'Período';
+    if (field === 'dia') return 'Dia e horário';
+
+    return schemas[module].fields.find(
+      f => f[0] === field
+    )?.[1] || field;
+  }
+
+  function cell(module, field, row) {
+    const value =
+      module === 'celulas' && field === 'participantes'
+        ? data.membros.filter(
+            membro =>
+              normalize(membro.celula) === normalize(row.nome)
+          ).length
+        : module === 'ministerios' && field === 'membros'
+          ? data.membros.filter(
+              membro =>
+                normalize(membro.ministerio) === normalize(row.nome)
+            ).length
+          : row[field];
+
+    if (field === 'nome') {
+      const initials = row.nome
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map(word => word[0] || '')
+        .join('');
+
+      return (
+        '<div class="cell-name">' +
+          '<span class="record-avatar" aria-hidden="true">' +
+            escape(module === 'membros' ? initials : schemas[module].icon) +
+          '</span>' +
+          '<strong>' + escape(value) + '</strong>' +
+        '</div>'
+      );
+    }
+
+    if (field === 'status') {
+      const color =
+        ['Inativo', 'Inativa'].includes(value)
+          ? 'neutral'
+          : ['Agendada', 'Concluída'].includes(value)
+            ? 'blue'
+            : ['Pendente', 'Planejada'].includes(value)
+              ? 'amber'
+              : '';
+
+      return (
+        '<span class="badge ' +
+          color +
+        '">' +
+          escape(value) +
+        '</span>'
+      );
+    }
+
+    if (field === 'ministerio') {
+      return '<span class="badge">' + escape(value) + '</span>';
+    }
+
+    if (field === 'data') return date(value);
+
+    if (field === 'dia') {
+      return (
+        escape(value) +
+        '<span class="cell-sub">' +
+          escape(row.horario) +
+        '</span>'
+      );
+    }
+
+    if (field === 'periodo') {
+      return (
+        date(row.inicio) +
+        '<span class="cell-sub">a ' +
+          date(row.fim) +
+        '</span>'
+      );
+    }
+
+    if (
+      module === 'campanhas' &&
+      ['meta', 'arrecadado', 'entregue'].includes(field)
+    ) {
+      const text = number(value) + ' ' + escape(row.unidade);
+
+      const percent = row.meta > 0
+        ? Math.round(row.arrecadado / row.meta * 100)
+        : 0;
+
+      return field === 'arrecadado'
+        ? (
+            '<div class="progress-cell">' +
+              text +
+              '<progress max="100" value="' +
+                Math.min(percent, 100) +
+                '" aria-label="Progresso da campanha"></progress>' +
+              '<span class="cell-sub">' +
+                (row.meta > 0
+                  ? percent + '% da meta'
+                  : 'Meta não definida') +
+              '</span>' +
+            '</div>'
+          )
+        : text;
+    }
+
+    return escape(
+      typeof value === 'number' ? number(value) : value
+    );
+  }
+
+  const icons = {
+    view:
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/>' +
+        '<circle cx="12" cy="12" r="3"/>' +
+      '</svg>',
+
+    edit:
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path d="m15 4 5 5M4 16 16 4a2 2 0 0 1 4 4L8 20H4v-4ZM12 4H4v16h16v-8"/>' +
+      '</svg>',
+
+    delete:
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/>' +
+      '</svg>'
+  };
+
+  function actions(row) {
+    return (
+      '<div class="actions">' +
+        (
+          key === 'escalas'
+            ? '<button type="button" class="button secondary availability-shortcut" data-availability-scale="' +
+                escape(row.id) +
+                '" aria-label="Ver disponibilidades de ' +
+                escape(row.nome) +
+                '">Disponíveis</button>'
+            : ''
+        ) +
+        [
+          ['view', 'Visualizar'],
+          ['edit', 'Editar'],
+          ['delete', 'Excluir']
+        ].map(([action, title]) =>
+          '<button type="button" class="icon-button ' +
+            (action === 'delete' ? 'danger' : '') +
+            '" data-action="' + action +
+            '" data-id="' + escape(row.id) +
+            '" aria-label="' + title + ' ' + escape(row.nome) +
+            '" title="' + title + '">' +
+              icons[action] +
+          '</button>'
+        ).join('') +
+      '</div>'
+    );
+  }
+
+  function table(module, rows, target, withActions) {
+    const columns = schemas[module].columns;
+
+    $('thead', target).innerHTML =
+      '<tr>' +
+      columns.map(field =>
+        '<th scope="col">' + label(module, field) + '</th>'
+      ).join('') +
+      (withActions ? '<th scope="col">Ações</th>' : '') +
+      '</tr>';
+
+    $('tbody', target).innerHTML = rows.length
+      ? rows.map(row =>
+          '<tr>' +
+          columns.map(field =>
+            '<td>' + cell(module, field, row) + '</td>'
+          ).join('') +
+          (
+            withActions
+              ? '<td>' + actions(row) + '</td>'
+              : ''
+          ) +
+          '</tr>'
+        ).join('')
+      : (
+          '<tr><td colspan="' +
+            (columns.length + (withActions ? 1 : 0)) +
+            '" class="empty-state">' +
+              '<strong>Nenhum registro encontrado</strong>' +
+              'Altere os filtros ou cadastre um novo registro.' +
+          '</td></tr>'
+        );
+  }
+
+  function confirmAction(title, message, onConfirm) {
+    $('#dialog-title').textContent = title;
+
+    $('#dialog-content').innerHTML =
+      '<p class="context-note">' + escape(message) + '</p>' +
+      '<div class="dialog-actions">' +
+        '<button class="button secondary" type="button" id="cancel-action">Cancelar</button>' +
+        '<button class="button danger secondary" type="button" id="confirm-action">Confirmar</button>' +
+      '</div>';
+
+    $('#cancel-action').onclick = () => dialog.close();
+
+    $('#confirm-action').onclick = async () => {
+      await onConfirm();
+      dialog.close();
+    };
+
+    dialog.showModal();
+    $('#cancel-action').focus();
+  }
+
+  // ==========================================
+  // CONFIGURAÇÕES
+  // ==========================================
+
+  if (key === 'configuracoes') {
+    const form = $('#settings-form');
+
+    try {
+      const settings = JSON.parse(
+        localStorage.getItem(settingsKey) || '{}'
+      );
+
+      ['comunidade', 'cidade', 'email'].forEach(field => {
+        form.elements[field].value = settings[field] || '';
+      });
+    } catch {
+      // Usa campos vazios.
+    }
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+
+      const settings = Object.fromEntries(new FormData(form));
+
+      settings.comunidade = settings.comunidade.trim();
+
+      if (!settings.comunidade) {
+        form.elements.comunidade.setCustomValidity(
+          'Informe o nome da comunidade.'
+        );
+
+        form.elements.comunidade.reportValidity();
+        return;
+      }
+
+      try {
+        localStorage.setItem(
+          settingsKey,
+          JSON.stringify(settings)
+        );
+
+        $('.sidebar-logo span').textContent = settings.comunidade;
+
+        notify(
+          'Informações de apresentação salvas neste navegador.'
+        );
+      } catch {
+        notify(
+          'O navegador não permitiu salvar as informações.'
+        );
+      }
+    });
+
+    form.elements.comunidade.addEventListener('input', () => {
+      form.elements.comunidade.setCustomValidity('');
+    });
+
+    $('#reset-demo').onclick = () =>
+      confirmAction(
+        'Restaurar dados de exemplo',
+        'Todos os cadastros e alterações locais dos módulos serão substituídos pelos exemplos iniciais. As disponibilidades locais também serão removidas.',
+        () => {
+          data = JSON.parse(JSON.stringify(seed));
+
+          if (persist()) {
+            notify('Dados demonstrativos restaurados.');
+          }
+        }
+      );
+
+    return;
+  }
+
+  // ==========================================
+  // RELATÓRIOS
+  // ==========================================
+
+  if (key === 'relatorios') {
+    const select = $('#report-module');
+
+    function renderReport() {
+      table(
+        select.value,
+        data[select.value],
+        $('#report-table'),
+        false
+      );
+
+      $('#report-summary').innerHTML = cards(
+        stats(select.value)
+      );
+    }
+
+    select.addEventListener('change', renderReport);
+
+    $('#print-report').onclick = () => window.print();
+
+    $('#export-report').onclick = () => {
+      const module = select.value;
+      const fields = schemas[module].fields;
+
+      const csvCell = value =>
+        '"' +
+        String(
+          /^[\s]*[=+@-]/.test(String(value))
+            ? "'" + value
+            : value
+        ).replace(/"/g, '""') +
+        '"';
+
+      const lines = [
+        fields.map(f => csvCell(f[1])).join(';'),
+        ...data[module].map(row =>
+          fields.map(([field]) => csvCell(row[field])).join(';')
+        )
+      ];
+
+      const url = URL.createObjectURL(
+        new Blob(
+          ['\uFEFF' + lines.join('\r\n')],
+          { type: 'text/csv;charset=utf-8;' }
+        )
+      );
+
+      const link = document.createElement('a');
+
+      link.href = url;
+      link.download =
+        'ekklesia-' + module + '-demonstracao.csv';
+
+      document.body.append(link);
+      link.click();
+      link.remove();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      notify('Relatório demonstrativo exportado.');
+    };
+
+    renderReport();
+    return;
+  }
+
+  // ==========================================
+  // MÓDULOS
+  // ==========================================
+
+  const schema = schemas[key];
+
+  if (!schema) return;
+
+  let page = 1;
+  const pageSize = 8;
+
+  let calendarVisible = false;
+
+  let calendarMonth = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    1
+  );
+
+  function filteredRows() {
+    const query = normalize($('#search').value.trim());
+
+    return data[key].filter(row => {
+      const searchMatch =
+        !query ||
+        schema.fields.some(([field]) =>
+          normalize(row[field]).includes(query)
+        );
+
+      const fieldsMatch = schema.filters.every(field => {
+        const filter = $('#filter-' + field);
+
+        return !filter.value || row[field] === filter.value;
+      });
+
+      const month = $('#filter-month')?.value;
+
+      const dateMatch =
+        !month ||
+        (
+          key === 'escalas'
+            ? row.data.startsWith(month)
+            : row.inicio.slice(0, 7) <= month &&
+              row.fim.slice(0, 7) >= month
+        );
+
+      return searchMatch && fieldsMatch && dateMatch;
+    });
+  }
+
+  function renderFilters() {
+    const previous = Object.fromEntries(
+      $$('select', $('#filter-fields')).map(select => [
+        select.id,
+        select.value
+      ])
+    );
+
+    const month = $('#filter-month')?.value || '';
+
+    $('#filter-fields').innerHTML =
+      schema.filters.map(field => {
+        const values = [
+          ...new Set(data[key].map(row => row[field]))
+        ].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+        return (
+          '<div>' +
+            '<label for="filter-' + field + '">' +
+              label(key, field) +
+            '</label>' +
+            '<select id="filter-' + field + '">' +
+              '<option value="">Todos</option>' +
+              values.map(value =>
+                '<option value="' + escape(value) + '">' +
+                  escape(value) +
+                '</option>'
+              ).join('') +
+            '</select>' +
+          '</div>'
+        );
+      }).join('') +
+      (
+        ['escalas', 'campanhas'].includes(key)
+          ? '<div><label for="filter-month">Período</label>' +
+              '<input type="month" id="filter-month" aria-label="Filtrar por mês"></div>'
+          : ''
+      );
+
+    for (const [id, value] of Object.entries(previous)) {
+      const select = $('#' + id);
+
+      if (
+        select &&
+        [...select.options].some(option => option.value === value)
+      ) {
+        select.value = value;
+      }
+    }
+
+    if ($('#filter-month')) {
+      $('#filter-month').value = month;
+    }
+  }
+
+  function renderTabs() {
+    if (key !== 'escalas') return;
+
+    const current = $('#filter-status').value;
+
+    $('#status-tabs').innerHTML = [
+      ['', 'Todas'],
+      ['Agendada', 'Agendadas'],
+      ['Ativa', 'Ativas'],
+      ['Concluída', 'Concluídas'],
+      ['Pendente', 'Pendentes']
+    ].map(([value, title]) =>
+      '<button type="button" data-status="' + value +
+        '" aria-pressed="' + (current === value) + '">' +
+        title +
+      '</button>'
+    ).join('');
+  }
+
+  function renderCalendar(rows) {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+
+    const first = new Date(year, month, 1).getDay();
+    const total = new Date(year, month + 1, 0).getDate();
+
+    const prefix =
+      year + '-' + String(month + 1).padStart(2, '0') + '-';
+
+    let days = '';
+
+    for (
+      let i = 0;
+      i < Math.ceil((first + total) / 7) * 7;
+      i++
+    ) {
+      const day = i - first + 1;
+
+      if (day < 1 || day > total) {
+        days += '<div class="calendar-day outside"></div>';
+        continue;
+      }
+
+      const events = rows
+        .filter(row =>
+          row.data === prefix + String(day).padStart(2, '0')
+        )
+        .sort((a, b) => a.horario.localeCompare(b.horario));
+
+      days +=
+        '<div class="calendar-day">' +
+          '<span>' + day + '</span>' +
+          events.map(row =>
+            '<button type="button" class="calendar-event" data-action="view" data-id="' +
+              escape(row.id) + '">' +
+              escape(row.horario) + ' · ' + escape(row.nome) +
+            '</button>'
+          ).join('') +
+        '</div>';
+    }
+
+    $('#calendar').innerHTML =
+      '<div class="calendar-header">' +
+        '<button type="button" class="button secondary" data-month="-1" aria-label="Mês anterior">‹</button>' +
+        '<h3>' +
+          calendarMonth.toLocaleDateString('pt-BR', {
+            month: 'long',
+            year: 'numeric'
+          }) +
+        '</h3>' +
+        '<button type="button" class="button secondary" data-month="1" aria-label="Próximo mês">›</button>' +
+      '</div>' +
+      '<div class="table-scroll">' +
+        '<div class="calendar-grid">' +
+          ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+            .map(day =>
+              '<div class="calendar-weekday">' + day + '</div>'
+            ).join('') +
+          days +
+        '</div>' +
+      '</div>' +
+      '<p class="report-note context-note">' +
+        rows.filter(row => row.data.startsWith(prefix)).length +
+        ' escala(s) neste mês com os filtros atuais.' +
+      '</p>';
+  }
+
+  function render() {
+    const rows = filteredRows();
+
+    const totalPages = Math.max(
+      1,
+      Math.ceil(rows.length / pageSize)
+    );
+
+    page = Math.min(Math.max(1, page), totalPages);
+
+    const start = (page - 1) * pageSize;
+
+    $('#module-stats').innerHTML = cards(stats(key));
+
+    table(
+      key,
+      rows.slice(start, start + pageSize),
+      $('#records-table'),
+      true
+    );
+
+    $('#result-count').textContent = rows.length
+      ? 'Mostrando ' +
+        (start + 1) +
+        ' a ' +
+        Math.min(start + pageSize, rows.length) +
+        ' de ' +
+        rows.length +
+        ' registros'
+      : 'Nenhum registro encontrado';
+
+    $('#pagination').innerHTML =
+      '<button class="page-button" type="button" data-page="' +
+        (page - 1) +
+        '" aria-label="Página anterior" ' +
+        (page === 1 ? 'disabled' : '') +
+      '>‹</button>' +
+      Array.from(
+        { length: totalPages },
+        (_, i) => i + 1
+      ).filter(n =>
+        n === 1 || n === totalPages || Math.abs(n - page) <= 1
+      ).map(n =>
+        '<button class="page-button" type="button" data-page="' +
+          n + '" aria-label="Página ' + n + '" ' +
+          (n === page ? 'aria-current="page"' : '') +
+        '>' + n + '</button>'
+      ).join('') +
+      '<button class="page-button" type="button" data-page="' +
+        (page + 1) +
+        '" aria-label="Próxima página" ' +
+        (page === totalPages ? 'disabled' : '') +
+      '>›</button>';
+
+    renderTabs();
+
+    if (calendarVisible) {
+      renderCalendar(rows);
+    }
+  }
+
+  // ==========================================
+  // VISUALIZAR REGISTRO
+  // ==========================================
+
+  function showDetails(row) {
+
+  // ==========================================
+  // VISUALIZAÇÃO DE MINISTÉRIO
+  // ==========================================
+
+  if (key === 'ministerios') {
+
+    const normalizar = texto =>
+      String(texto || '')
+        .trim()
+        .toLowerCase();
+
+    // Busca os membros deste ministério
+    const membrosMinisterio = data.membros.filter(membro =>
+      normalizar(membro.ministerio) ===
+      normalizar(row.nome)
+    );
+
+    let conteudo = '';
+
+    // ------------------------------------------
+    // CABEÇALHO
+    // ------------------------------------------
+
+    conteudo += `
+      <div style="margin-bottom: 20px;">
+        <h3 style="margin-bottom: 6px;">
+          ${escape(row.nome)}
+        </h3>
+
+        <p style="margin: 0; color: #666;">
+          Líder: ${escape(row.lider || 'Não informado')}
+        </p>
+
+        <p style="margin: 4px 0 0; color: #666;">
+          ${membrosMinisterio.length}
+          ${membrosMinisterio.length === 1 ? 'membro' : 'membros'}
+        </p>
+      </div>
+    `;
+
+    // ------------------------------------------
+    // SE NÃO HOUVER MEMBROS
+    // ------------------------------------------
+
+    if (membrosMinisterio.length === 0) {
+
+      conteudo += `
+        <div style="
+          padding: 20px;
+          text-align: center;
+          background: #f5f7f5;
+          border-radius: 8px;
+          color: #666;
+        ">
+          Nenhum membro está vinculado a este ministério.
+        </div>
+      `;
+
+    }
+
+    // ------------------------------------------
+    // LOUVOR
+    // ------------------------------------------
+
+    else if (normalizar(row.nome) === 'louvor') {
+
+      // Agrupa por banda
+      const bandas = {};
+
+      membrosMinisterio.forEach(membro => {
+
+        const nomeBanda =
+          membro.banda?.trim() || 'Sem banda';
+
+        if (!bandas[nomeBanda]) {
+          bandas[nomeBanda] = [];
+        }
+
+        bandas[nomeBanda].push(membro);
+
+      });
+
+      Object.keys(bandas)
+        .sort()
+        .forEach(nomeBanda => {
+
+          conteudo += `
+            <div style="
+              margin-bottom: 20px;
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              overflow: hidden;
+            ">
+
+              <div style="
+                padding: 12px 15px;
+                background: #f1f5f1;
+                font-weight: 600;
+              ">
+                ${escape(nomeBanda)}
+                <span style="font-weight: normal; color: #666;">
+                  (${bandas[nomeBanda].length})
+                </span>
+              </div>
+
+              <div style="padding: 8px 15px;">
+          `;
+
+          bandas[nomeBanda].forEach(membro => {
+
+            conteudo += `
+              <div style="
+                padding: 10px 0;
+                border-bottom: 1px solid #eee;
+              ">
+                <strong>
+                  ${escape(membro.nome)}
+                </strong>
+              </div>
+            `;
+
+          });
+
+          conteudo += `
+              </div>
+            </div>
+          `;
+
+        });
+
+    }
+
+    // ------------------------------------------
+    // OUTROS MINISTÉRIOS
+    // ------------------------------------------
+
+    else {
+
+      conteudo += `
+        <div style="
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          overflow: hidden;
+        ">
+      `;
+
+      membrosMinisterio.forEach(membro => {
+
+        conteudo += `
+          <div style="
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+          ">
+            <strong>
+              ${escape(membro.nome)}
+            </strong>
+          </div>
+        `;
+
+      });
+
+      conteudo += `
+        </div>
+      `;
+
+    }
+
+    // ------------------------------------------
+    // BOTÕES
+    // ------------------------------------------
+
+    conteudo += `
+      <div class="dialog-actions">
+
+        <button
+          type="button"
+          class="button secondary"
+          id="details-close"
+        >
+          Fechar
+        </button>
+
+      </div>
+    `;
+
+    $('#dialog-title').textContent =
+      'Membros do ministério';
+
+    $('#dialog-content').innerHTML =
+      conteudo;
+
+    $('#details-close').onclick =
+      () => dialog.close();
+
+    dialog.showModal();
+
+    return;
+  }
+
+  // ==========================================
+  // VISUALIZAÇÃO NORMAL
+  // ==========================================
+
+  $('#dialog-title').textContent =
+    row.nome;
+
+  $('#dialog-content').innerHTML =
+    '<dl class="details-list">' +
+
+    schema.fields
+      .map(
+        ([field, title, type]) =>
+          '<div>' +
+          '<dt>' +
+          title +
+          '</dt>' +
+          '<dd>' +
+          escape(
+            type === 'date'
+              ? date(row[field])
+              : row[field] ||
+                (row[field] === 0
+                  ? '0'
+                  : 'Não informado')
+          ) +
+          '</dd>' +
+          '</div>'
+      )
+      .join('') +
+
+    '</dl>' +
+
+    '<div class="dialog-actions">' +
+
+    '<button type="button" class="button secondary" id="details-close">' +
+    'Fechar' +
+    '</button>' +
+
+    '<button type="button" class="button" id="details-edit">' +
+    'Editar' +
+    '</button>' +
+
+    '</div>';
+
+  $('#details-close').onclick =
+    () => dialog.close();
+
+  $('#details-edit').onclick =
+    () => {
+      dialog.close();
+      showForm(row);
+    };
+
+  dialog.showModal();
+}
+
+  // ==========================================
+  // CADASTRAR E EDITAR
+  // ==========================================
+
+  function showForm(row) {
+    $('#dialog-title').textContent = row
+      ? 'Editar ' + schema.singular.toLowerCase()
+      : schema.article + ' ' + schema.singular;
+
+    $('#dialog-content').innerHTML =
+      '<form id="record-form">' +
+        '<div class="form-grid">' +
+          schema.fields.map(([field, title, type = 'text', options]) => {
+            const value = row?.[field] ?? (type === 'number' ? 0 : '');
+
+            const attributes =
+              'id="record-' + field + '" name="' + field + '" ' +
+              (type === 'textarea' ? '' : 'required');
+
+            const input =
+              type === 'select'
+                ? '<select ' + attributes + '>' +
+                    options.map(option =>
+                      '<option value="' + escape(option) + '" ' +
+                        (value === option ? 'selected' : '') +
+                      '>' + escape(option) + '</option>'
+                    ).join('') +
+                  '</select>'
+
+                : type === 'banda'
+                  ? '<select id="record-banda" name="banda">' +
+                      '<option value="">Selecione a banda</option>' +
+                      bandas
+                        .filter(b =>
+                          b.ministerio === 'Louvor' &&
+                          normalize(b.status) === 'ativo'
+                        )
+                        .map(b =>
+                          '<option value="' + escape(b.nome) + '" ' +
+                            (value === b.nome ? 'selected' : '') +
+                          '>' + escape(b.nome) + '</option>'
+                        ).join('') +
+                    '</select>'
+
+                  : type === 'textarea'
+                    ? '<textarea ' + attributes +
+                        ' maxlength="2000">' +
+                        escape(value) +
+                      '</textarea>'
+
+                    : '<input ' + attributes +
+                        ' type="' + type +
+                        '" value="' + escape(value) + '" ' +
+                        (
+                          type === 'number'
+                            ? 'min="0" max="1000000" step="1"'
+                            : 'maxlength="160"'
+                        ) +
+                      '>';
+
+            return (
+              '<div class="field ' +
+                (
+                  field === 'nome' || type === 'textarea'
+                    ? 'full'
+                    : ''
+                ) +
+                '" data-field="' + field + '">' +
+                '<label for="record-' + field + '">' +
+                  title +
+                '</label>' +
+                input +
+              '</div>'
+            );
+          }).join('') +
+        '</div>' +
+        '<p class="form-error" id="form-error" role="alert"></p>' +
+        '<div class="dialog-actions">' +
+          '<button type="button" class="button secondary" id="cancel-form">Cancelar</button>' +
+          '<button type="submit" class="button">Salvar ' +
+            schema.singular.toLowerCase() +
+          '</button>' +
+        '</div>' +
+      '</form>';
+
+    $('#cancel-form').onclick = () => dialog.close();
+
+    const ministerioSelect = $('#record-ministerio');
+    const bandaField = $('[data-field="banda"]');
+    const bandaSelect = $('#record-banda');
+
+    function atualizarBanda() {
+      const ehLouvor = ministerioSelect?.value === 'Louvor';
+
+      if (bandaField) {
+        bandaField.hidden = !ehLouvor;
+      }
+
+      if (bandaSelect) {
+        bandaSelect.required = ehLouvor;
+
+        if (!ehLouvor) {
+          bandaSelect.value = '';
+        }
+      }
+    }
+
+    ministerioSelect?.addEventListener(
+      'change',
+      atualizarBanda
+    );
+
+    atualizarBanda();
+
+    $('#record-form').addEventListener('submit', async event => {
+      event.preventDefault();
+
+      const record = {
+        ...row,
+        id: row?.id ||
+          (Date.now().toString(36) +
+            Math.random().toString(36).slice(2))
+      };
+
+      const form = new FormData(event.target);
+
+      for (const [field, , type] of schema.fields) {
+        record[field] = type === 'number'
+          ? Number(form.get(field))
+          : String(form.get(field)).trim();
+      }
+
+      if (key === 'membros') {
+
+  const camposObrigatorios = [
+    'nome',
+    'email',
+    'telefone',
+    'dataNascimento',
+    'dataEntrada',
+    'ministerio',
+    'celula',
+    'status'
+  ];
+
+  const campoVazio = camposObrigatorios.some(field => {
+    return !record[field] || record[field].trim() === '';
+  });
+
+  // Banda só é obrigatória para quem é do Louvor
+  const bandaObrigatoria =
+    record.ministerio === 'Louvor' &&
+    (!record.banda || record.banda.trim() === '');
+
+  if (campoVazio || bandaObrigatoria) {
+    $('#form-error').textContent =
+      record.ministerio === 'Louvor' && bandaObrigatoria
+        ? 'Selecione a banda do membro.'
+        : 'Preencha os campos obrigatórios com informações válidas.';
+
+    return;
+  }
+
+} else {
+
+  if (
+    schema.fields.some(([field, type]) =>
+      type !== 'textarea' &&
+      type !== 'banda' &&
+      !record[field]
+    )
+  ) {
+    $('#form-error').textContent =
+      'Preencha os campos obrigatórios com informações válidas.';
+
+    return;
+  }
+}
+
+      if (key === 'campanhas' && record.fim < record.inicio) {
+        $('#form-error').textContent =
+          'O término deve ser igual ou posterior ao início.';
+        return;
+      }
+
+      if (key === 'campanhas' && record.entregue > record.arrecadado) {
+        $('#form-error').textContent =
+          'A quantidade entregue não pode superar a quantidade arrecadada.';
+        return;
+      }
+
+      try {
+        // ======================================
+        // SALVAR CÉLULAS NO FIRESTORE
+        // ======================================
+
+        if (key === 'celulas') {
+          const celulaFirestore = {
+            nome: record.nome,
+            lider: record.lider,
+            dia: record.dia,
+            horario: record.horario,
+            local: record.local,
+            status: record.status
+          };
+
+          if (row) {
+            await updateDoc(
+              doc(db, 'celulas', row.id),
+              celulaFirestore
+            );
+
+            const index = data.celulas.findIndex(
+              item => item.id === row.id
+            );
+
+            if (index >= 0) {
+              data.celulas[index] = {
+                id: row.id,
+                ...celulaFirestore
+              };
+            }
+
+            notify('Célula atualizada com sucesso!');
+          } else {
+            const documento = await addDoc(
+              collection(db, 'celulas'),
+              celulaFirestore
+            );
+
+            data.celulas.unshift({
+              id: documento.id,
+              ...celulaFirestore
+            });
+
+            notify('Célula cadastrada com sucesso!');
+          }
+
+          $('#filters').reset();
+          page = 1;
+          dialog.close();
+          renderFilters();
+          render();
+
+          return;
+        }
+
+        // ======================================
+        // SALVAR MEMBROS NO FIRESTORE
+        // ======================================
+
+        if (key === 'membros') {
+          const membroFirestore = {
+            nome: record.nome,
+            email: record.email,
+            telefone: record.telefone,
+            ministerio: record.ministerio,
+            banda: record.banda || '',
+            celula: record.celula,
+            status: record.status,
+            dataEntrada: record.dataEntrada,
+            dataNascimento: record.dataNascimento
+          };
+
+          if (row) {
+            await updateDoc(
+              doc(db, 'membros', row.id),
+              membroFirestore
+            );
+
+            const index = data.membros.findIndex(
+              item => item.id === row.id
+            );
+
+            if (index >= 0) {
+              data.membros[index] = {
+                id: row.id,
+                ...membroFirestore
+              };
+            }
+
+            notify('Membro atualizado com sucesso!');
+          } else {
+            const documento = await addDoc(
+              membrosRef,
+              membroFirestore
+            );
+
+            data.membros.unshift({
+              id: documento.id,
+              ...membroFirestore
+            });
+
+            notify('Membro cadastrado com sucesso!');
+          }
+
+          $('#filters').reset();
+          page = 1;
+          dialog.close();
+          renderFilters();
+          render();
+
+          return;
+        }
+
+        // ======================================
+        // OUTROS MÓDULOS: ARMAZENAMENTO LOCAL
+        // ======================================
+
+        if (row) {
+          const index = data[key].findIndex(
+            item => item.id === row.id
+          );
+
+          if (index >= 0) {
+            data[key][index] = record;
+          }
+        } else {
+          data[key].unshift(record);
+          $('#filters').reset();
+          page = 1;
+        }
+
+        const saved = persist();
+
+        dialog.close();
+        renderFilters();
+        render();
+
+        if (saved) {
+          notify(
+            schema.singular +
+            (schema.article === 'Nova'
+              ? ' atualizada.'
+              : ' cadastrado.') +
+            ' na demonstração local.'
+          );
+        }
+      } catch (erro) {
+        console.error('Erro ao salvar registro:', erro);
+
+        $('#form-error').textContent =
+          key === 'membros'
+            ? 'Não foi possível salvar o membro no Firestore.'
+            : key === 'celulas'
+              ? 'Não foi possível salvar a célula no Firestore.'
+              : 'Não foi possível salvar o registro.';
+      }
+    });
+
+    dialog.showModal();
+  }
+
+  // ==========================================
+  // EVENTOS DA PÁGINA
+  // ==========================================
+
+  $('#add-record').onclick = () => showForm();
+
+  $('#filters').addEventListener('submit', event => {
+    event.preventDefault();
+  });
+
+  $('#filters').addEventListener('input', () => {
+    page = 1;
+    render();
+  });
+
+  $('#filters').addEventListener('change', () => {
+    if (calendarVisible && $('#filter-month')?.value) {
+      calendarMonth = new Date(
+        $('#filter-month').value + '-01T12:00:00'
+      );
+    }
+
+    page = 1;
+    render();
+  });
+
+  $('#filters').addEventListener('reset', () => {
+    setTimeout(() => {
+      page = 1;
+      render();
+    }, 0);
+  });
+
+  $('#pagination').addEventListener('click', event => {
+    const button = event.target.closest('[data-page]');
+
+    if (button) {
+      page = Number(button.dataset.page);
+      render();
+    }
+  });
+
+  $('#status-tabs')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-status]');
+
+    if (!button) return;
+
+    const select = $('#filter-status');
+
+    if (
+      ![...select.options].some(
+        option => option.value === button.dataset.status
+      )
+    ) {
+      select.add(
+        new Option(button.dataset.status, button.dataset.status)
+      );
+    }
+
+    select.value = button.dataset.status;
+
+    page = 1;
+    render();
+  });
+
+  $('#calendar-toggle')?.addEventListener('click', () => {
+    calendarVisible = !calendarVisible;
+
+    $('#calendar-toggle').setAttribute(
+      'aria-pressed',
+      String(calendarVisible)
+    );
+
+    $('#calendar-toggle').textContent = calendarVisible
+      ? '▤ Listagem'
+      : '▦ Calendário';
+
+    $('.table-panel').hidden = calendarVisible;
+    $('#calendar').hidden = !calendarVisible;
+
+    if (calendarVisible && $('#filter-month')?.value) {
+      calendarMonth = new Date(
+        $('#filter-month').value + '-01T12:00:00'
+      );
+    }
+
+    render();
+  });
+
+  $('#calendar')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-month]');
+
+    if (button) {
+      calendarMonth.setMonth(
+        calendarMonth.getMonth() + Number(button.dataset.month)
+      );
+
+      if ($('#filter-month')?.value) {
+        $('#filter-month').value =
+          calendarMonth.getFullYear() +
+          '-' +
+          String(calendarMonth.getMonth() + 1).padStart(2, '0');
+      }
+
+      render();
+    }
+  });
+
+  $('.module-page').addEventListener('click', event => {
+    const button = event.target.closest('[data-action]');
+
+    if (!button) return;
+
+    const row = data[key].find(
+      item => item.id === button.dataset.id
+    );
+
+    if (!row) return;
+
+    if (button.dataset.action === 'view') {
+      showDetails(row);
+    }
+
+    if (button.dataset.action === 'edit') {
+      showForm(row);
+    }
+
+    if (button.dataset.action === 'delete') {
+      confirmAction(
+        'Excluir ' + schema.singular.toLowerCase(),
+
+        ['membros', 'celulas'].includes(key)
+          ? 'Deseja excluir "' + row.nome +
+            '"? Esta ação será realizada no Firestore.'
+          : 'Deseja excluir "' + row.nome +
+            '" desta demonstração? Os outros módulos não serão alterados.',
+
+        async () => {
+          try {
+            // EXCLUIR CÉLULA DO FIRESTORE
+            if (key === 'celulas') {
+              await deleteDoc(
+                doc(db, 'celulas', row.id)
+              );
+
+              data.celulas = data.celulas.filter(
+                celula => celula.id !== row.id
+              );
+
+              renderFilters();
+              render();
+
+              notify('Célula excluída com sucesso!');
+              return;
+            }
+
+            // EXCLUIR MEMBRO DO FIRESTORE
+            if (key === 'membros') {
+              await deleteDoc(
+                doc(db, 'membros', row.id)
+              );
+
+              data.membros = data.membros.filter(
+                membro => membro.id !== row.id
+              );
+
+              renderFilters();
+              render();
+
+              notify('Membro excluído com sucesso!');
+              return;
+            }
+
+            // EXCLUIR DOS OUTROS MÓDULOS
+            data[key] = data[key].filter(
+              item => item.id !== row.id
+            );
+
+            const saved = persist();
+
+            renderFilters();
+            render();
+
+            if (saved) {
+              notify(
+                'Registro excluído da demonstração local.'
+              );
+            }
+          } catch (erro) {
+            console.error('Erro ao excluir registro:', erro);
+
+            notify(
+              key === 'membros'
+                ? 'Não foi possível excluir o membro do Firestore.'
+                : key === 'celulas'
+                  ? 'Não foi possível excluir a célula do Firestore.'
+                  : 'Não foi possível excluir o registro.'
+            );
+          }
+        }
+      );
+    }
+  });
+
+  // ==========================================
+  // INICIALIZAÇÃO
+  // ==========================================
+
+  renderFilters();
+  render();
+
+  if (
+    key === 'membros' ||
+    key === 'ministerios' ||
+    key === 'celulas'
+  ) {
+    carregarMembrosFirestore();
+  }
+
+  if (key === 'celulas') {
+    carregarCelulasFirestore();
+  }
+
+  if (key === 'membros') {
+    carregarBandasFirestore();
+  }
+})();

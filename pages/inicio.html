@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Ekklesia | Início</title>
+
+    <link rel="stylesheet" href="../css/global.css">
+    <link rel="stylesheet" href="../css/inicio.css">
+    <link rel="stylesheet" href="../css/gestao.css">
+    <script src="../js/dados.js" defer></script>
+    <script type="module" src="../js/gestao.js"></script>
+    <script src="../js/inicio.js" defer></script>
+</head>
+
+<body class="dashboard-page">
+
+    <div class="layout">
+
+        <!-- MENU LATERAL -->
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-logo">
+                <img src="../assets/logo.jpeg" alt="Logo Ekklesia">
+
+                <div>
+                    <h1>EKKLESIA</h1>
+                    <span>Gestão para Comunidades</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-menu">
+
+                <a href="inicio.html" class="menu-item active">
+                    <span>⌂</span>
+                    Início
+                </a>
+
+                <a href="membros.html" class="menu-item">
+                    <span>♙</span>
+                    Membros
+                </a>
+
+                <a href="ministerios.html" class="menu-item">
+                    <span>♧</span>
+                    Ministérios
+                </a>
+
+                <a href="celulas.html" class="menu-item">
+                    <span>♧</span>
+                    Células
+                </a>
+
+                <a href="escalas.html" class="menu-item">
+                    <span>▦</span>
+                    Escalas
+                </a>
+
+                <a href="campanhas.html" class="menu-item">
+                    <span>♡</span>
+                    Campanhas
+                </a>
+
+                <a href="relatorios.html" class="menu-item">
+                    <span>▤</span>
+                    Relatórios
+                </a>
+
+                <a href="configuracoes.html" class="menu-item">
+                    <span>⚙</span>
+                    Configurações
+                </a>
+
+            </nav>
+
+            <div class="sidebar-footer">
+
+                <a href="login.html" class="menu-item">
+                    <span>➜</span>
+                    Sair
+                </a>
+
+            </div>
+
+        </aside>
+
+
+
+
+        <!-- CONTEÚDO -->
+        <main class="main-content">
+
+            <!-- TOPO DO SISTEMA -->
+            <header class="topbar">
+
+                <!-- LADO ESQUERDO -->
+                <div class="topbar-left">
+
+                    <button class="menu-button" type="button" aria-label="Alternar menu" aria-controls="sidebar" aria-expanded="true">
+                        ☰
+                    </button>
+
+                    <span>Início</span>
+
+                </div>
+
+
+                <!-- LADO DIREITO -->
+                <div class="topbar-right">
+
+                    <!-- NOTIFICAÇÕES -->
+                    <button class="notification-button" type="button" aria-label="Notificações">
+                        ♧
+                    </button>
+
+
+                    <!-- PERFIL -->
+                    <div class="user-profile">
+
+                        <div class="user-avatar">
+                            A
+                        </div>
+
+                        <div class="user-info">
+
+                            <strong>Administrador</strong>
+                            <span>Administrador</span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+
+            <section class="dashboard">
+
+                <!-- TÍTULO -->
+                <div class="dashboard-heading">
+                <div class="page-heading">
+
+                    <span>VISÃO GERAL</span>
+
+                    <h2>Bem-vindo ao Ekklesia</h2>
+
+                    <p>
+                        Acompanhe as principais informações da sua comunidade.
+                    </p>
+
+                </div>
+
+
+                <div class="dashboard-update">
+                    <div><strong id="dashboard-source">Carregando dados…</strong><span id="last-update" role="status"></span></div>
+                    <button type="button" class="button secondary" id="refresh-dashboard">↻ Atualizar</button>
+                </div>
+                </div>
+                <p id="dashboard-error" class="form-error" role="alert" hidden></p>
+
+                <!-- INDICADORES -->
+                <div class="stats-grid">
+
+                    <div class="stat-card">
+                        <span class="stat-icon">♙</span>
+
+                        <div>
+                            <span>Membros</span>
+                            <strong data-count="membros">—</strong>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <span class="stat-icon">♧</span>
+
+                        <div>
+                            <span>Ministérios</span>
+                            <strong data-count="ministerios">—</strong>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <span class="stat-icon">♧</span>
+
+                        <div>
+                            <span>Células</span>
+                            <strong data-count="celulas">—</strong>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <span class="stat-icon">▦</span>
+
+                        <div>
+                            <span>Escalas</span>
+                            <strong data-count="escalas">—</strong>
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <!-- ÁREA PRINCIPAL -->
+                <div class="dashboard-grid">
+
+                    <!-- ESCALAS -->
+                    <section class="dashboard-card" aria-labelledby="upcoming-title">
+                        <div class="card-header">
+                            <div><small>ORGANIZAÇÃO</small><h3 id="upcoming-title">Próximos eventos</h3></div>
+                            <div class="schedule-actions">
+                                <button type="button" class="button secondary" id="open-availability" aria-haspopup="dialog" aria-controls="availability-dialog">▦ Selecionar data</button>
+                                <a href="escalas.html">Ver todas</a>
+                            </div>
+                        </div>
+                        <p class="context-note">Selecione a data em que tem disponibilidade para servir em um culto.</p>
+                        <div id="upcoming-schedules" aria-live="polite"><p class="context-note">Carregando escalas…</p></div>
+                        <p id="availability-feedback" class="availability-feedback" role="status" hidden></p>
+                    </section>
+
+                    <!-- EVENTOS -->
+                    <section class="dashboard-card">
+
+                        <div class="card-header">
+
+                            <div>
+                                <small>AGENDA</small>
+                                <h3>Próximos eventos</h3>
+                                <p class="agenda-note">Agenda demonstrativa</p>
+                            </div>
+
+                        </div>
+
+
+                        <div class="event-item">
+                            <span class="event-icon">▣</span>
+
+                            <div>
+                                <strong>Culto de Domingo</strong>
+                                <p>Domingo • 18:00</p>
+                            </div>
+                        </div>
+
+
+                        <div class="event-item">
+                            <span class="event-icon">▣</span>
+
+                            <div>
+                                <strong>Reunião de Líderes</strong>
+                                <p>Terça-feira • 19:30</p>
+                            </div>
+                        </div>
+
+
+                        <div class="event-item">
+                            <span class="event-icon">▣</span>
+
+                            <div>
+                                <strong>Encontro de Células</strong>
+                                <p>Sexta-feira • 20:00</p>
+                            </div>
+                        </div>
+
+                    </section>
+
+                </div>
+
+
+                <!-- CAMPANHAS -->
+                <section class="campaign-card dashboard-carousel" aria-label="Campanhas em destaque" aria-roledescription="carrossel">
+                    <button type="button" class="carousel-arrow previous" id="previous-campaign" aria-label="Campanha anterior">‹</button>
+                    <div id="campaign-slide" class="campaign-slide" role="group" aria-roledescription="slide">
+                        <div class="campaign-info">
+                            <small id="campaign-status">CAMPANHAS</small>
+                            <h3 id="campaign-title">Carregando campanhas…</h3>
+                            <p id="campaign-description"></p>
+                            <a href="campanhas.html">Ver campanhas</a>
+                        </div>
+                        <div class="campaign-metrics" id="campaign-metrics">
+                            <div class="campaign-amount"><span>Arrecadado</span><strong id="campaign-raised">—</strong></div>
+                            <progress id="campaign-progress" max="100" value="0" aria-label="Progresso da campanha"></progress>
+                            <div class="campaign-amount"><span id="campaign-target">Meta: —</span><strong id="campaign-percent">—</strong></div>
+                            <div class="campaign-stats">
+                                <div><strong id="campaign-donations">—</strong><span>Doações registradas</span></div>
+                                <div><strong id="campaign-other">—</strong><span id="campaign-other-label">Entregue</span></div>
+                            </div>
+                        </div>
+                        <div class="campaign-donation" id="campaign-donation">
+                            <div class="campaign-qr"><img id="campaign-qr-image" alt="" hidden><span id="campaign-qr-placeholder">QR Code<br>não configurado</span></div>
+                            <div><p id="campaign-payment-note">Doação online ainda indisponível.</p><a class="button donate-button" id="donate-link" target="_blank" rel="noopener noreferrer" hidden>♡ Doar agora</a><button class="button donate-button" id="donate-unavailable" type="button" disabled aria-describedby="campaign-payment-note">♡ Doar agora</button></div>
+                        </div>
+                    </div>
+                    <button type="button" class="carousel-arrow next" id="next-campaign" aria-label="Próxima campanha">›</button>
+                    <div class="carousel-dots" role="group" aria-label="Selecionar campanha">
+                        <button type="button" data-campaign-index="0" aria-label="Campanha 1" aria-pressed="true" disabled></button>
+                        <button type="button" data-campaign-index="1" aria-label="Campanha 2" aria-pressed="false" disabled></button>
+                        <button type="button" data-campaign-index="2" aria-label="Campanha 3" aria-pressed="false" disabled></button>
+                    </div>
+                    <p class="sr-only" id="campaign-announcement" aria-live="polite"></p>
+                </section>
+
+            </section>
+
+        </main>
+
+    </div>
+
+<dialog id="availability-dialog" aria-labelledby="availability-title" aria-describedby="availability-note">
+    <div class="dialog-heading"><h2 id="availability-title">Selecionar data</h2><button type="button" class="icon-button" id="close-availability" aria-label="Fechar calendário">×</button></div>
+    <p class="context-note" id="availability-note">Escolha o membro para este registro local. A identificação automática dependerá do login do sistema.</p>
+    <form id="availability-form">
+        <label for="availability-member">Membro</label>
+        <select id="availability-member" required><option value="">Selecione seu cadastro</option></select>
+        <div class="availability-month"><button type="button" class="icon-button" id="previous-month" aria-label="Mês anterior">‹</button><h3 id="availability-month-title" aria-live="polite"></h3><button type="button" class="icon-button" id="next-month" aria-label="Próximo mês">›</button></div>
+        <div class="availability-weekdays" aria-hidden="true"><span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span></div>
+        <div class="availability-days" id="availability-days" role="group" aria-label="Datas de cultos disponíveis"></div>
+        <p class="context-note" id="calendar-help">Selecione um dia com culto cadastrado.</p>
+        <label for="availability-worship">Culto e horário</label>
+        <select id="availability-worship" required disabled><option value="">Selecione uma data</option></select>
+        <label for="availability-observation" class="observation-label">Observação (opcional)</label>
+        <textarea id="availability-observation" rows="2" maxlength="500" placeholder="Informe alguma observação sobre sua disponibilidade"></textarea>
+        <p class="form-error" id="availability-error" role="alert"></p>
+        <button type="submit" class="button confirm-availability" id="confirm-availability" disabled>Confirmar disponibilidade</button>
+        <p id="availability-history" class="context-note" aria-live="polite"></p>
+    </form>
+</dialog>
+<noscript><p class="demo-notice">Ative o JavaScript para carregar os dados do Dashboard.</p></noscript>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="../js/firebase-config.js"></script>
+</body>
+
+</html>
