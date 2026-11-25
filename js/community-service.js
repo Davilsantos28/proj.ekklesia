@@ -7,6 +7,8 @@ const modules = ['membros', 'bandas', 'ministerios', 'celulas', 'escalas', 'camp
 let cache = {};
 let availabilityCache = [];
 let activeChurchId = null;
+let leaderMode = false;
+export function isLeaderMode() { return leaderMode; }
 let tenancyReady = true;
 const listeners = new Set();
 const clone = value => structuredClone(value);
@@ -16,16 +18,25 @@ export async function readCollection(name, ...conditions) {
   const scopedConditions = activeChurchId ? [...conditions, where('igrejaId', '==', activeChurchId)] : conditions;
   return rows(await getDocs(query(collection(db, name), ...scopedConditions)));
 }
+export async function readLeaderWorships() {
+ if(!auth.currentUser)throw new Error('Entre novamente.');
+ const snapshot=await getDoc(doc(db,'usuarios',auth.currentUser.uid));
+ const profile=snapshot.exists()?snapshot.data():null;
+ if(profile?.perfil!=='lider'||profile?.status!=='ativo'||!profile?.igrejaId)throw new Error('Sua conta precisa estar ativa como Líder e vinculada à igreja.');
+ const result=await getDocs(query(collection(db,'escalas'),where('igrejaId','==',profile.igrejaId)));
+ return rows(result).filter(row=>row.igrejaId===profile.igrejaId&&isOpenWorship(row)).sort((a,b)=>eventStart(a)-eventStart(b));
+}
 export async function initializeAdmin(profile) {
   if (!profile && auth.currentUser) {
     const snapshot = await getDoc(doc(db, 'usuarios', auth.currentUser.uid));
     profile = snapshot.exists() ? snapshot.data() : null;
   }
+  leaderMode = profile?.perfil === 'lider';
   activeChurchId = profile?.igrejaId || null;
   tenancyReady = await readTenancyReady();
-  const results = await Promise.all(modules.map(async name => [name, await readCollection(name)]));
+  const results = await Promise.all(modules.map(async name => [name, leaderMode && !['membros','ministerios','celulas','bandas'].includes(name) ? [] : await readCollection(name)]));
   cache = Object.fromEntries(results);
-  if (activeChurchId) await syncMinistryCatalog(cache.ministerios);
+  if (activeChurchId && tenancyReady && !leaderMode) await syncMinistryCatalog(cache.ministerios);
   if (document.body.dataset.page === 'escalas') availabilityCache = await readCollection('disponibilidades');
   window.Ekklesia.store = {
     load: () => clone(cache), loadAvailability: () => clone(availabilityCache),
@@ -52,7 +63,7 @@ async function syncMinistryCatalog(rows) {
   const previous = snapshot.exists() && Array.isArray(snapshot.data().nomes) ? snapshot.data().nomes : [];
   if (snapshot.exists() && snapshot.data().igrejaId === activeChurchId
       && JSON.stringify([...previous].sort()) === JSON.stringify(names)) return;
-  await setDoc(reference, { igrejaId: activeChurchId, nomes });
+  await setDoc(reference, { igrejaId: activeChurchId, nomes: names });
 }
 async function readTenancyReady() {
   if (!activeChurchId) return true;
@@ -60,10 +71,16 @@ async function readTenancyReady() {
   return snapshot.exists() && snapshot.data().migrationComplete === true;
 }
 export function adminData() { return clone(cache); }
+export function updateCachedMember(row) {
+ const index=cache.membros.findIndex(item=>item.id===row.id);
+ if(index>=0)cache.membros[index]=row;
+ publish();
+}
 export function optionalField(field, type) {
   return type === 'textarea' || ['banda', 'paymentUrl', 'pixChave', 'pixBeneficiario'].includes(field);
 }
 export async function saveRecord(module, record, editing = false) {
+  if (leaderMode) throw new Error('Use a edição de vínculos. O líder não gerencia cadastros.');
   if (!modules.includes(module)) throw new Error('Módulo desconhecido.');
   if (activeChurchId && !tenancyReady) throw new Error('A migração dos dados desta igreja ainda não foi concluída. Os módulos estão em modo de leitura.');
   const reference = editing ? doc(db, module, record.id) : doc(collection(db, module));
@@ -101,6 +118,7 @@ export async function saveRecord(module, record, editing = false) {
   return saved;
 }
 export async function removeRecord(module, id) {
+  if (leaderMode) throw new Error('Use a edição de vínculos. O líder não gerencia cadastros.');
   if (!modules.includes(module)) throw new Error('Módulo desconhecido.');
   if (activeChurchId && !tenancyReady) throw new Error('A migração dos dados da igreja ainda não foi concluída. Os módulos estão em modo de leitura.');
   const batch = writeBatch(db);

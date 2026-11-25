@@ -15,7 +15,7 @@ service cloud.firestore {
     }
     function activeUser() {
       return signedIn() && currentUser().status == 'ativo'
-        && currentUser().perfil in ['administrador', 'membro']
+        && currentUser().perfil in ['administrador', 'membro', 'lider']
         && !('igrejaId' in currentUser());
     }
     function churchAdministrator() {
@@ -24,7 +24,7 @@ service cloud.firestore {
     }
     function churchUser() {
       return signedIn() && currentUser().status == 'ativo'
-        && currentUser().perfil in ['administrador', 'membro']
+        && currentUser().perfil in ['administrador', 'membro', 'lider']
         && currentUser().igrejaId is string;
     }
     function legacyRecord(data) { return !('igrejaId' in data); }
@@ -43,6 +43,25 @@ service cloud.firestore {
     function canEditRecord(data) {
       return (administrator() && legacyRecord(data))
         || (tenancyReady() && churchAdministrator() && data.igrejaId == currentUser().igrejaId);
+    }
+    function churchLeader() {
+      return signedIn() && currentUser().perfil == 'lider' && currentUser().status == 'ativo' && currentUser().igrejaId is string;
+    }
+    function leaderRecord(data) { return churchLeader() && data.igrejaId == currentUser().igrejaId; }
+    function validGroupLink(data, field, name, target) {
+      return (data[field] == null && data[name] == '')
+        || (data[field] is string && get(/databases/$(database)/documents/$(target)/$(data[field])).data.igrejaId == currentUser().igrejaId
+          && get(/databases/$(database)/documents/$(target)/$(data[field])).data.nome == data[name]);
+    }
+    function validRoleAssignment(uid) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let person = getAfter(/databases/$(database)/documents/membros/$(after.membroId)).data;
+      return churchAdministrator() && before.igrejaId == currentUser().igrejaId && before.status == 'ativo'
+        && before.perfil in ['membro','lider'] && after.perfil in ['membro','lider']
+        && after.diff(before).affectedKeys().hasOnly(['perfil','membroId'])
+        && (!('membroId' in before) || before.membroId == after.membroId)
+        && person.igrejaId == before.igrejaId && person.usuarioId == uid && person.funcao == after.perfil;
     }
     function validNewProfile(data) {
       return data.keys().hasAll(['nome', 'email', 'perfilSolicitado', 'perfil', 'status', 'criadoEm', 'igrejaId', 'ministerio'])
@@ -100,15 +119,40 @@ service cloud.firestore {
         && request.resource.data.nomes.size() <= 100;
       allow delete: if false;
     }
+    function validAccessDecision(uid) {
+      let path = /databases/$(database)/documents/solicitacoes/$(uid);
+      let before = get(path).data;
+      let after = getAfter(path).data;
+      let userBefore = get(userPath(uid)).data;
+      let userAfter = getAfter(userPath(uid)).data;
+      return churchAdministrator() && uid != request.auth.uid
+        && before.usuarioId == uid && before.status == 'pendente' && userBefore.status == 'pendente'
+        && before.igrejaId == currentUser().igrejaId && userBefore.igrejaId == before.igrejaId
+        && before.perfilSolicitado in ['administrador','membro'] && userBefore.perfilSolicitado == before.perfilSolicitado
+        && after.diff(before).affectedKeys().hasOnly(['status','decididoPor','decididoEm'])
+        && after.decididoPor == request.auth.uid && after.decididoEm == request.time
+        && userAfter.diff(userBefore).affectedKeys().hasOnly(['status','perfil'])
+        && ((after.status == 'aprovada' && userAfter.status == 'ativo' && userAfter.perfil == before.perfilSolicitado)
+          || (after.status == 'recusada' && userAfter.status == 'recusado' && userAfter.perfil == 'membro'));
+    }
     match /usuarios/{uid} {
-      allow get: if signedIn() && request.auth.uid == uid;
+      allow get: if signedIn() && (request.auth.uid == uid || (churchAdministrator() && resource.data.igrejaId == currentUser().igrejaId));
+      allow update: if validAccessDecision(uid) || validRoleAssignment(uid);
       allow create: if signedIn() && request.auth.uid == uid
         && validNewProfile(request.resource.data)
         && request.resource.data.email == request.auth.token.email
         && ((validInitialAdmin(request.resource.data) && existsAfter(/databases/$(database)/documents/igrejas/$(request.resource.data.igrejaId)))
           || validMembershipRequest(request.resource.data));
-      // Aprovação e atualização de perfis serão implementadas em etapa própria.
-      allow list, update, delete: if false;
+      // Edição pessoal não concede permissões administrativas.
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome','telefone','descricao','foto'])
+        && request.resource.data.nome is string && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 120
+        && request.resource.data.get('telefone','') is string && request.resource.data.get('telefone','').size() <= 30
+        && request.resource.data.get('descricao','') is string && request.resource.data.get('descricao','').size() <= 500
+        && request.resource.data.get('foto','') is string && request.resource.data.get('foto','').size() <= 120000
+        && (request.resource.data.get('foto','') == '' || request.resource.data.get('foto','').matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+'));
+      allow list: if churchAdministrator() && request.query.limit <= 2 && resource.data.igrejaId == currentUser().igrejaId && resource.data.status == 'ativo';
+      allow delete: if false;
     }
     match /solicitacoes/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid
@@ -131,20 +175,26 @@ service cloud.firestore {
         && getAfter(userPath(request.auth.uid)).data.email == request.resource.data.email
         && getAfter(userPath(request.auth.uid)).data.ministerio == request.resource.data.ministerio
         && getAfter(userPath(request.auth.uid)).data.perfilSolicitado == request.resource.data.perfilSolicitado;
-      allow update, delete: if false;
+      allow update: if validAccessDecision(uid);
+      allow delete: if false;
     }
     match /system/{id} {
       allow get: if signedIn() && id == 'tenancy';
       allow list, create, update, delete: if false;
     }
     match /membros/{id} {
-      allow read: if canAdminRecord(resource.data);
+      allow read: if canAdminRecord(resource.data) || leaderRecord(resource.data);
+      allow update: if tenancyReady() && leaderRecord(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ministerio','celula','banda','ministerioId','celulaId','bandaId'])
+        && validGroupLink(request.resource.data,'ministerioId','ministerio','ministerios')
+        && validGroupLink(request.resource.data,'celulaId','celula','celulas')
+        && validGroupLink(request.resource.data,'bandaId','banda','bandas');
       allow create: if canCreateRecord(request.resource.data);
       allow update: if canEditRecord(resource.data) && canEditRecord(request.resource.data);
       allow delete: if canEditRecord(resource.data);
     }
     match /bandas/{id} {
-      allow read: if canAdminRecord(resource.data);
+      allow read: if canAdminRecord(resource.data) || leaderRecord(resource.data);
       allow create: if canCreateRecord(request.resource.data);
       allow update: if canEditRecord(resource.data) && canEditRecord(request.resource.data);
       allow delete: if canEditRecord(resource.data);
@@ -175,6 +225,15 @@ service cloud.firestore {
     }
     match /comunidadeMembros/{id} {
       allow read: if canReadRecord(resource.data);
+      allow create, update: if tenancyReady() && churchLeader()
+        && request.resource.data.keys().hasOnly(['nome','ministerio','celula','banda','status','igrejaId'])
+        && request.resource.data.igrejaId == currentUser().igrejaId
+        && request.resource.data.nome == getAfter(/databases/$(database)/documents/membros/$(id)).data.nome
+        && request.resource.data.status == getAfter(/databases/$(database)/documents/membros/$(id)).data.status
+        && request.resource.data.ministerio == getAfter(/databases/$(database)/documents/membros/$(id)).data.ministerio
+        && request.resource.data.celula == getAfter(/databases/$(database)/documents/membros/$(id)).data.celula
+        && request.resource.data.banda == getAfter(/databases/$(database)/documents/membros/$(id)).data.banda
+        && getAfter(/databases/$(database)/documents/membros/$(id)).data.igrejaId == currentUser().igrejaId;
       allow create: if canCreateRecord(request.resource.data)
         && request.resource.data.keys().hasOnly(['nome', 'ministerio', 'celula', 'banda', 'status', 'igrejaId'])
         && request.resource.data.keys().hasAll(['nome', 'ministerio', 'celula', 'banda', 'status'])

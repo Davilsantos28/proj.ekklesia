@@ -1,3 +1,4 @@
+import { mountDashboardTools } from './dashboard-tools.js';
 (() => {
   'use strict';
   const { store, schedule } = window.Ekklesia;
@@ -150,4 +151,5 @@
   window.addEventListener('pageshow', refreshDashboard);
   document.addEventListener('visibilitychange', ()=>{if(!document.hidden)refreshDashboard();});
   refreshDashboard();
+  mountDashboardTools(store, schedule);
 })();

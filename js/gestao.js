@@ -1,3 +1,7 @@
+import { mountReportAnalytics } from './report-analytics.js';
+import { isLeaderMode } from './community-service.js';
+import { editMemberAccess } from './member-access.js';
+import { glyphIcon, adminIcon } from './admin-icons.js';
 import { adminData, saveRecord, removeRecord, optionalField, publishExistingMembers } from './community-service.js';
 
 (() => {
@@ -82,9 +86,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
     }
   });
 
-  $('.notification-button')?.addEventListener('click', () => {
-    notify('Não há notificações nesta demonstração.');
-  });
+
 
   const settingsKey = 'ekklesia.apresentacao.v1';
 
@@ -132,7 +134,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
     return items.map(([value, label, note, icon]) =>
       '<div class="stat-card">' +
         '<span class="stat-icon" aria-hidden="true">' +
-          icon +
+          glyphIcon(icon) +
         '</span>' +
         '<div>' +
           '<strong>' + escape(value) + '</strong>' +
@@ -271,6 +273,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
   }
 
   function label(module, field) {
+    if (field === 'funcao') return 'Função';
     if (field === 'periodo') return 'Período';
     if (field === 'dia') return 'Dia e horário';
 
@@ -280,6 +283,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
   }
 
   function cell(module, field, row) {
+    if (field === 'funcao') return '<span class="badge">' + (row.funcao === 'lider' ? 'Líder' : 'Membro') + '</span>';
     const value =
       module === 'celulas' && field === 'participantes'
         ? data.membros.filter(
@@ -304,7 +308,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
       return (
         '<div class="cell-name">' +
           '<span class="record-avatar" aria-hidden="true">' +
-            escape(module === 'membros' ? initials : schemas[module].icon) +
+            (module === 'membros' ? escape(initials) : glyphIcon(schemas[module].icon)) +
           '</span>' +
           '<strong>' + escape(value) + '</strong>' +
         '</div>'
@@ -420,7 +424,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
           ['view', 'Visualizar'],
           ['edit', 'Editar'],
           ['delete', 'Excluir']
-        ].map(([action, title]) =>
+        ].filter(([action]) => !isLeaderMode() || action === 'view' || (key === 'membros' && action === 'edit')).map(([action, title]) =>
           '<button type="button" class="icon-button ' +
             (action === 'delete' ? 'danger' : '') +
             '" data-action="' + action +
@@ -598,6 +602,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
 
   if (key === 'relatorios') {
     const select = $('#report-module');
+    mountReportAnalytics(data, select);
 
     function renderReport() {
       table(
@@ -1168,7 +1173,8 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
   $('#details-close').onclick =
     () => dialog.close();
 
-  $('#details-edit').onclick =
+  if (isLeaderMode() && key !== 'membros') $('#details-edit').remove();
+  if ($('#details-edit')) $('#details-edit').onclick =
     () => {
       dialog.close();
       showForm(row);
@@ -1182,6 +1188,11 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
   // ==========================================
 
   function showForm(row) {
+    if (key === 'membros' && row) {
+      editMemberAccess(row, data, { leader: isLeaderMode(), onSaved: () => { data = adminData(); renderFilters(); render(); } });
+      return;
+    }
+    if (isLeaderMode()) return;
     $('#dialog-title').textContent = row
       ? 'Editar ' + schema.singular.toLowerCase()
       : schema.article + ' ' + schema.singular;
@@ -1394,7 +1405,8 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
   // EVENTOS DA PÁGINA
   // ==========================================
 
-  $('#add-record').onclick = () => showForm();
+  if (isLeaderMode()) $('#add-record')?.remove();
+  else $('#add-record').onclick = () => showForm();
 
   $('#filters').addEventListener('submit', event => {
     event.preventDefault();
@@ -1463,9 +1475,9 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
       String(calendarVisible)
     );
 
-    $('#calendar-toggle').textContent = calendarVisible
-      ? '▤ Listagem'
-      : '▦ Calendário';
+    $('#calendar-toggle').innerHTML = calendarVisible
+      ? adminIcon('report') + ' Listagem'
+      : adminIcon('calendar') + ' Calendário';
 
     $('.table-panel').hidden = calendarVisible;
     $('#calendar').hidden = !calendarVisible;

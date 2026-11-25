@@ -9,7 +9,7 @@ window.Ekklesia = {
     "icon": "♙",
     "columns": [
       "nome",
-      "email",
+      "funcao",
       "telefone",
       "ministerio",
       "celula",

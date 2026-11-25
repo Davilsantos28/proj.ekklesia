@@ -6,11 +6,12 @@ import { auth, db, firebaseConfig } from './firebase-config.js';
 export function isAdministrator(profile) {
   return profile?.perfil === 'administrador' && profile?.status === 'ativo';
 }
+export function isLeader(profile) { return profile?.perfil === 'lider' && profile?.status === 'ativo'; }
 export function isActiveUser(profile) {
-  return profile?.status === 'ativo' && ['administrador', 'membro'].includes(profile?.perfil);
+  return profile?.status === 'ativo' && ['administrador', 'membro', 'lider'].includes(profile?.perfil);
 }
 export function homeFor(profile) {
-  return isAdministrator(profile) ? 'inicio.html' : 'portal-membro.html';
+  return isAdministrator(profile) ? 'inicio.html' : profile?.perfil === 'lider' ? 'inicio-lider.html' : 'portal-membro.html';
 }
 
 export async function readProfile(user) {

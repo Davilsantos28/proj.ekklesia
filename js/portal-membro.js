@@ -159,6 +159,7 @@ try {
   else {
     const profile = await readProfile(auth.currentUser);
     if (!isActiveUser(profile)) { await logout(); location.replace('login.html'); }
+    else if (profile?.perfil === 'lider') location.replace('inicio-lider.html');
     else if (isAdministrator(profile)) location.replace('inicio.html');
     else {
       $('#member-name').textContent = profile.nome;

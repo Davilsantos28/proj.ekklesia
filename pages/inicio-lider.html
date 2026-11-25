@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="auth-checking">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ekklesia | Início do Líder</title>
+<link rel="stylesheet" href="../css/global.css">
+<link rel="stylesheet" href="../css/inicio.css">
+<link rel="stylesheet" href="../css/gestao.css">
+
+<link rel="stylesheet" href="../css/autenticacao.css">
+<script type="module" src="../js/inicio-lider.js"></script>
+<link rel="stylesheet" href="../css/admin-theme.css">
+</head>
+<body data-page="inicio-lider">
+<p id="leader-loading" class="access-loading" role="status">Verificando acesso… Se esta mensagem persistir, confira sua conexão e recarregue a página.</p>
+<noscript>Ative o JavaScript para acessar o sistema.</noscript>
+<a class="skip-link" href="#page-content">Ir para o conteúdo</a>
+    <div class="layout" id="leader-home" hidden>
+
+        <!-- MENU LATERAL -->
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-logo">
+                <img src="../assets/logo-ekklesia.png" alt="Logo Ekklesia">
+
+                <div>
+                    <h1>EKKLESIA</h1>
+                    <span>Gestão para Comunidades</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-menu" aria-label="Navegação principal">
+
+                <a href="inicio.html" class="menu-item">
+                    <span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/></svg></span>
+                    Início
+                </a>
+
+                <a href="membros.html" class="menu-item active" aria-current="page">
+                    <span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v2"/></svg></span>
+                    Membros
+                </a>
+
+                <a href="ministerios.html" class="menu-item">
+                    <span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 12v3h4v-3"/></svg></span>
+                    Ministérios
+                </a>
+
+                <a href="celulas.html" class="menu-item">
+                    <span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="M12 8v4M5 15v-3h14v3"/></svg></span>
+                    Células
+                </a>
+
+                <a href="escalas.html" class="menu-item">
+                    <span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2m-8 3h2"/></svg></span>
+                    Escalas
+                </a>
+
+                <a href="campanhas.html" class="menu-item">
+                    <span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20.8 5.6a5.3 5.3 0 0 0-7.5 0L12 7l-1.3-1.4a5.3 5.3 0 0 0-7.5 7.5L12 22l8.8-8.9a5.3 5.3 0 0 0 0-7.5Z"/></svg></span>
+                    Campanhas
+                </a>
+
+                <a href="relatorios.html" class="menu-item">
+                    <span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H5v18h14V8Z M14 3v5h5M8 17v-3m4 3v-6m4 6v-4"/></svg></span>
+                    Relatórios
+                </a>
+
+                <a href="solicitacoes.html" class="menu-item"><span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 5H4v16h16V5h-5M9 3h6v4H9zM8 13l3 3 5-6"/></svg></span>Solicitações</a>
+                <a href="configuracoes.html" class="menu-item">
+                    <span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m9 3-1 3-3 1 1 4-2 2 2 3 3-1 2 3h3l1-3 3-1-1-4 2-2-2-3-3 1-2-3Z"/><circle cx="11.5" cy="10.5" r="3"/></svg></span>
+                    Configurações
+                </a>
+
+
+            </nav>
+
+            <div class="sidebar-footer">
+
+                <a href="login.html" class="menu-item" id="leader-logout">
+                    <span><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 4H4v16h5m5-13 5 5-5 5m-6-5h13"/></svg></span>
+                    Sair
+                </a>
+
+            </div>
+
+        </aside>
+
+
+
+
+        <!-- CONTEÚDO -->
+        <main class="main-content">
+
+            <!-- TOPO DO SISTEMA -->
+            <header class="topbar">
+
+                <!-- LADO ESQUERDO -->
+                <div class="topbar-left">
+
+                    <button class="menu-button" type="button" aria-label="Alternar menu" aria-controls="sidebar" aria-expanded="true"><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+
+                    <span>Início</span>
+
+                </div>
+
+
+                <!-- LADO DIREITO -->
+                <div class="topbar-right">
+
+                    <!-- NOTIFICAÇÕES -->
+                    <button class="notification-button" type="button" aria-label="Notificações"><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></button>
+
+
+                    <!-- PERFIL -->
+                    <div class="user-profile">
+
+                        <div class="user-avatar">
+                            A
+                        </div>
+
+                        <div class="user-info">
+
+                            <strong id="leader-name">Líder</strong>
+                            <span>Líder</span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+
+<section class="dashboard leader-dashboard" id="page-content">
+<div class="page-heading module-heading"><div><span class="eyebrow">ÁREA DE LIDERANÇA</span><h2>Bem-vindo ao Ekklesia</h2><p>Acompanhe os cultos da sua igreja e organize os vínculos da comunidade.</p></div><button id="leader-refresh" type="button" class="button secondary">Atualizar cultos</button></div>
+<p id="leader-message" class="form-error" role="status" tabindex="-1" hidden></p>
+<div class="stats-grid leader-stats"><article class="stat-card"><span class="stat-icon" id="leader-role-icon"></span><div><span>Seu perfil</span><strong>Líder</strong><small>Vínculos de membros, células e ministérios</small></div></article><article class="stat-card"><span class="stat-icon" id="leader-calendar-icon"></span><div><span>Próximos cultos</span><strong id="leader-worship-count">—</strong><small>Publicados pela administração da sua igreja</small></div></article></div>
+<div class="dashboard-grid leader-grid"><section class="dashboard-card" aria-labelledby="leader-worship-title"><div class="card-header"><div><small>AGENDA DA COMUNIDADE</small><h3 id="leader-worship-title">Próximos cultos</h3></div></div><p class="context-note">Datas e horários de Brasília.</p><div id="leader-worships"></div></section>
+<section class="dashboard-card"><div class="card-header"><div><small>ORGANIZAÇÃO</small><h3>Conecte pessoas à comunidade</h3></div></div><p class="context-note">Vincule, transfira ou desvincule membros das células e ministérios já cadastrados.</p><a class="button" href="membros.html">Gerenciar vínculos de membros</a><div class="leader-shortcuts"><a href="ministerios.html">Consultar ministérios →</a><a href="celulas.html">Consultar células →</a></div></section></div>
+</section></main></div></body></html>

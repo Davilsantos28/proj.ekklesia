@@ -56,6 +56,11 @@ test('regras: leitura por perfil, privacidade e disponibilidades próprias', { s
       await assertFails(deleteDoc(doc(a, name, 'attempt')));
     }
     await assertFails(updateDoc(doc(a, 'usuarios', 'a'), { perfil: 'administrador' }));
+    await assertSucceeds(updateDoc(doc(a, 'usuarios', 'a'), { nome: 'a', telefone: '81999990000', descricao: 'Apresentação', foto: '' }));
+    await assertFails(updateDoc(doc(a, 'usuarios', 'a'), { igrejaId: 'outra-igreja' }));
+    await assertFails(updateDoc(doc(a, 'usuarios', 'a'), { status: 'ativo', perfil: 'administrador' }));
+    await assertFails(updateDoc(doc(a, 'usuarios', 'a'), { foto: 'https://example.com/foto.png' }));
+    await assertFails(updateDoc(doc(a, 'usuarios', 'b'), { telefone: '81999990000' }));
     await assertFails(getDoc(doc(a, 'usuarios', 'b')));
     const response = { usuarioId: 'a', escalaId: 'future', nome: 'a', cultoNome: 'Culto', data: '2099-01-01', horario: '19:00', local: 'Templo', disponivel: true, observacao: '', atualizadoEm: serverTimestamp() };
     await assertSucceeds(setDoc(doc(a, 'disponibilidades', 'a_future'), response));
@@ -87,5 +92,40 @@ test('regras: leitura por perfil, privacidade e disponibilidades próprias', { s
     requestBatch.set(doc(applicant, 'usuarios', 'applicant'), { nome: 'Solicitante', email: 'applicant@example.com', perfilSolicitado: 'membro', perfil: 'membro', status: 'pendente', igrejaId: 'church-a', ministerio: 'Louvor', criadoEm: serverTimestamp() });
     requestBatch.set(doc(applicant, 'solicitacoes', 'applicant'), { usuarioId: 'applicant', igrejaId: 'church-a', nome: 'Solicitante', email: 'applicant@example.com', ministerio: 'Louvor', perfilSolicitado: 'membro', status: 'pendente', criadoEm: serverTimestamp() });
     await assertSucceeds(requestBatch.commit());
+    const approval = writeBatch(newUser);
+    // Administrador da igreja diferente não pode aprovar o pedido de church-a.
+    approval.update(doc(newUser, 'solicitacoes', 'applicant'), { status: 'aprovada', decididoPor: 'new-user', decididoEm: serverTimestamp() });
+    approval.update(doc(newUser, 'usuarios', 'applicant'), { status: 'ativo', perfil: 'membro' });
+    await assertFails(approval.commit());
+    await environment.withSecurityRulesDisabled(async context => {
+      await setDoc(doc(context.firestore(), 'usuarios', 'approver'), { nome:'Responsável', perfil:'administrador', status:'ativo', igrejaId:'church-a' });
+    });
+    const approver = environment.authenticatedContext('approver').firestore();
+    await assertFails(updateDoc(doc(approver, 'usuarios', 'applicant'), { status:'ativo', perfil:'membro' }));
+    await assertFails(updateDoc(doc(applicant, 'usuarios', 'applicant'), { status:'ativo', perfil:'administrador' }));
+    const validApproval=writeBatch(approver);
+    validApproval.update(doc(approver, 'solicitacoes', 'applicant'), {status:'aprovada',decididoPor:'approver',decididoEm:serverTimestamp()});
+    validApproval.update(doc(approver, 'usuarios', 'applicant'), {status:'ativo',perfil:'membro'});
+    await assertSucceeds(validApproval.commit());
+    await environment.withSecurityRulesDisabled(async context => {
+      const db=context.firestore();
+      await setDoc(doc(db,'system','tenancy'),{migrationComplete:true});
+      await setDoc(doc(db,'usuarios','role-member'),{nome:'Pessoa',perfil:'membro',status:'ativo',igrejaId:'church-a'});
+      await setDoc(doc(db,'membros','linked-person'),{nome:'Pessoa',status:'Ativo',igrejaId:'church-a',funcao:'membro',ministerio:'',celula:'',banda:'',ministerioId:null,celulaId:null,bandaId:null});
+      await setDoc(doc(db,'celulas','local-group'),{nome:'Grupo local',igrejaId:'church-a'});
+      await setDoc(doc(db,'celulas','foreign-group'),{nome:'Grupo estrangeiro',igrejaId:'church-b'});
+    });
+    const promotion=writeBatch(approver);
+    promotion.update(doc(approver,'membros','linked-person'),{usuarioId:'role-member',funcao:'lider'});
+    promotion.update(doc(approver,'usuarios','role-member'),{perfil:'lider',membroId:'linked-person'});
+    await assertSucceeds(promotion.commit());
+    const leaderDb=environment.authenticatedContext('role-member').firestore();
+    await assertFails(deleteDoc(doc(leaderDb,'membros','linked-person')));
+    await assertFails(updateDoc(doc(leaderDb,'membros','linked-person'),{nome:'Alterado'}));
+    await assertFails(updateDoc(doc(leaderDb,'usuarios','role-member'),{perfil:'administrador'}));
+    await assertFails(setDoc(doc(leaderDb,'celulas','new-structure'),{nome:'Nova',igrejaId:'church-a'}));
+    await assertFails(updateDoc(doc(leaderDb,'membros','linked-person'),{celula:'Grupo estrangeiro',celulaId:'foreign-group'}));
+    await assertSucceeds(updateDoc(doc(leaderDb,'membros','linked-person'),{celula:'Grupo local',celulaId:'local-group'}));
+    await assertSucceeds(updateDoc(doc(leaderDb,'membros','linked-person'),{celula:'',celulaId:null}));
   } finally { await environment.cleanup(); }
 });
