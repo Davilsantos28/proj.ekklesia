@@ -7,7 +7,7 @@ async function fixture({ ready = true, catalog = null } = {}) {
   const context = vm.createContext({ structuredClone, window: { Ekklesia: { schemas: { escalas: {fields:[]}, campanhas:{fields:[]} } } }, document: {body:{dataset:{}}} });
   const mock = {
     db:{},auth:{currentUser:{uid:'admin'}},
-    collection: (_db,name)=>({name}), doc:(_db,name,id)=>({name,id}),
+    onSnapshot: () => () => {}, collection: (_db,name)=>({name}), doc:(_db,name,id)=>({name,id}),
     query:(ref,...conditions)=>({...ref,conditions}),where:(...args)=>args,
     getDocs:async ref=>({docs:ref.name==='ministerios'?[
       {id:'1',data:()=>({nome:' Louvor ',status:'Ativo'})},

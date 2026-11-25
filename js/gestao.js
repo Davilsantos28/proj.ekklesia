@@ -1,3 +1,6 @@
+import {cellParticipants} from './community-model.js';
+import {mountCellDetail} from './cell-detail.js';
+import {scaleIndicators} from './scale-indicators.js';
 import { mountReportAnalytics } from './report-analytics.js';
 import { isLeaderMode } from './community-service.js';
 import { editMemberAccess } from './member-access.js';
@@ -200,10 +203,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
       const totalParticipantes = rows.reduce(
         (total, celula) =>
           total +
-          data.membros.filter(
-            membro =>
-              normalize(membro.celula) === normalize(celula.nome)
-          ).length,
+          cellParticipants(celula, data.celulas, data.membros).length,
         0
       );
 
@@ -273,6 +273,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
   }
 
   function label(module, field) {
+    if (field === 'disponibilidade') return 'Disponibilidade';
     if (field === 'funcao') return 'Função';
     if (field === 'periodo') return 'Período';
     if (field === 'dia') return 'Dia e horário';
@@ -282,14 +283,18 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
     )?.[1] || field;
   }
 
+  let scaleCounts = new Map();
   function cell(module, field, row) {
+    if (module === 'escalas' && field === 'disponibilidade') {
+      const counts = scaleCounts.get(row.id);
+      return counts ? '<strong>' + counts.available.length + ' disponíveis</strong>' +
+        '<span class="cell-sub">' + counts.assigned.length + ' escalados · ' + counts.filled + ' vagas preenchidas</span>' +
+        (counts.coverage === null ? '' : '<span class="cell-sub">' + counts.coverage + '% de disponibilidade potencial</span>') : '—';
+    }
     if (field === 'funcao') return '<span class="badge">' + (row.funcao === 'lider' ? 'Líder' : 'Membro') + '</span>';
     const value =
       module === 'celulas' && field === 'participantes'
-        ? data.membros.filter(
-            membro =>
-              normalize(membro.celula) === normalize(row.nome)
-          ).length
+        ? cellParticipants(row, data.celulas, data.membros).length
         : module === 'ministerios' && field === 'membros'
           ? data.membros.filter(
               membro =>
@@ -439,7 +444,7 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
   }
 
   function table(module, rows, target, withActions) {
-    const columns = schemas[module].columns;
+    const columns = module === 'escalas' && withActions ? [...schemas[module].columns, 'disponibilidade'] : schemas[module].columns;
 
     $('thead', target).innerHTML =
       '<tr>' +
@@ -861,6 +866,10 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
 
   function render() {
     const rows = filteredRows();
+    if (key === 'escalas') {
+      const responses = window.Ekklesia.store.loadAvailability();
+      scaleCounts = new Map(rows.map(row => [row.id, scaleIndicators(row, responses)]));
+    }
 
     const totalPages = Math.max(
       1,
@@ -1417,7 +1426,9 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
     render();
   });
 
-  $('#filters').addEventListener('change', () => {
+  $('#filters').addEventListener('change', event => {
+    // A busca já renderiza no input. Renderizar no blur remove o botão durante o clique.
+    if (event.target.id === 'search') return;
     if (calendarVisible && $('#filter-month')?.value) {
       calendarMonth = new Date(
         $('#filter-month').value + '-01T12:00:00'
@@ -1522,7 +1533,8 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
     if (!row) return;
 
     if (button.dataset.action === 'view') {
-      showDetails(row);
+      if (cellDetail) cellDetail.open(row.id, button);
+      else showDetails(row);
     }
 
     if (button.dataset.action === 'edit') {
@@ -1552,6 +1564,18 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
   // ==========================================
   // INICIALIZAÇÃO
   // ==========================================
+
+  const cellDetail = key === 'celulas' ? mountCellDetail({
+    getData: () => data,
+    isLeader: isLeaderMode,
+    editCell: showForm,
+    onMemberSaved: () => { data = adminData(); renderFilters(); render(); cellDetail.refresh(); }
+  }) : null;
+  if (cellDetail || key === 'escalas') window.Ekklesia.store.subscribe(() => {
+    data = adminData();
+    render();
+    cellDetail?.refresh();
+  });
 
   renderFilters();
   render();

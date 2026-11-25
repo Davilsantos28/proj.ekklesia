@@ -105,7 +105,8 @@ test('regras: leitura por perfil, privacidade e disponibilidades próprias', { s
     await assertFails(updateDoc(doc(applicant, 'usuarios', 'applicant'), { status:'ativo', perfil:'administrador' }));
     const validApproval=writeBatch(approver);
     validApproval.update(doc(approver, 'solicitacoes', 'applicant'), {status:'aprovada',decididoPor:'approver',decididoEm:serverTimestamp()});
-    validApproval.update(doc(approver, 'usuarios', 'applicant'), {status:'ativo',perfil:'membro'});
+    validApproval.update(doc(approver, 'usuarios', 'applicant'), {status:'ativo',perfil:'membro',membroId:'applicant'});
+    validApproval.set(doc(approver, 'membros', 'applicant'), {igrejaId:'church-a',funcao:'membro',status:'Ativo',usuarioId:'applicant',emailAcesso:'applicant@example.com'});
     await assertSucceeds(validApproval.commit());
     await environment.withSecurityRulesDisabled(async context => {
       const db=context.firestore();

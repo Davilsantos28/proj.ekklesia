@@ -1,7 +1,7 @@
 import { auth } from './firebase-config.js';
 import { readProfile, isActiveUser, isAdministrator, logout } from './auth-service.js';
 import { readMemberData, saveOwnAvailability, cancelAvailability } from './community-service.js';
-import { normalize, eventStart, isOpenWorship, availabilityState, safePaymentUrl } from './community-model.js';
+import { normalize, eventStart, isOpenWorship, availabilityState, safePaymentUrl, cellParticipants } from './community-model.js';
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const date = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? value.split('-').reverse().join('/') : 'Data não informada';
@@ -25,9 +25,11 @@ function navigate() {
   });
 }
 function worships() { return data.escalas.filter(row => isOpenWorship(row)).sort((a, b) => eventStart(a) - eventStart(b)); }
-function participants(field, name) {
-  const key = field + ':' + normalize(name);
-  if (!groupCache.has(key)) groupCache.set(key, data.comunidadeMembros.filter(row => normalize(row[field]) === normalize(name)).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')));
+function participants(field, group) {
+  const key = field + ':' + group.id;
+  const members = () => field === 'celula' ? cellParticipants(group, data.celulas, data.comunidadeMembros) :
+    data.comunidadeMembros.filter(row => normalize(row[field]) === normalize(group.nome));
+  if (!groupCache.has(key)) groupCache.set(key, members().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')));
   return groupCache.get(key);
 }
 function renderGroups(module, field, searchId, target) {
@@ -35,7 +37,7 @@ function renderGroups(module, field, searchId, target) {
   const groups = data[module].filter(row => normalize([row.nome, row.lider, row.local].join(' ')).includes(search));
   $(target).innerHTML = groups.length ? groups.map(row => '<article class="card"><span class="tag">' + escape(row.status) + '</span><h3>' + escape(row.nome) + '</h3><p>Liderança: ' + escape(row.lider || 'Não informada') + '</p>' +
     (module === 'celulas' ? '<p>' + escape(row.dia) + ' · ' + escape(row.horario) + '<br>' + escape(row.local) + '</p>' : '<p>' + escape(row.area) + '</p>') +
-    '<p>' + participants(field, row.nome).length + ' participante(s) publicado(s)</p><button class="quiet" type="button" data-group="' + module + '" data-id="' + escape(row.id) + '">Ver participantes</button></article>').join('') : empty('Nenhum grupo encontrado. Os grupos publicados pela administração aparecerão aqui.');
+    '<p>' + participants(field, row).length + ' participante(s) publicado(s)</p><button class="quiet" type="button" data-group="' + module + '" data-id="' + escape(row.id) + '">Ver participantes</button></article>').join('') : empty('Nenhum grupo encontrado. Os grupos publicados pela administração aparecerão aqui.');
 }
 function renderHistory() {
   const history = [...data.disponibilidades].sort((a, b) => (b.data + b.horario).localeCompare(a.data + a.horario));
@@ -114,7 +116,7 @@ document.addEventListener('click', async event => {
   const group = event.target.closest('[data-group]');
   if (group && data) {
     const row = data[group.dataset.group].find(item => item.id === group.dataset.id);
-    const members = participants(group.dataset.group === 'celulas' ? 'celula' : 'ministerio', row.nome);
+    const members = participants(group.dataset.group === 'celulas' ? 'celula' : 'ministerio', row);
     $('#participants-title').textContent = row.nome;
     $('#participants-content').innerHTML = members.length ? '<ul class="participant-list">' + members.map(member => '<li><strong>' + escape(member.nome) + '</strong><small>' + escape([member.banda, member.status].filter(Boolean).join(' · ')) + '</small></li>').join('') + '</ul>' : empty('Nenhum participante publicado para este grupo.');
     $('#participants-dialog').showModal();

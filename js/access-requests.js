@@ -1,7 +1,10 @@
 import { auth, db } from './firebase-config.js';
 import { collection, doc, getDocs, query, where, limit, startAfter, runTransaction, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import {publicMember} from './community-model.js';
 
-export async function decideAccessRequest(id, approve) {
+const normalizedEmail = value => String(value || '').trim().toLowerCase();
+
+export async function decideAccessRequest(id, approve, repair = false) {
  if (!auth.currentUser) throw new Error('Entre novamente.');
  const actor=auth.currentUser.uid;
  if (id===actor) throw new Error('Você não pode aprovar seu próprio acesso.');
@@ -12,10 +15,52 @@ export async function decideAccessRequest(id, approve) {
   if(!own.exists()||!request.exists()||!target.exists())throw new Error('Solicitação ou perfil não encontrado.');
   const admin=own.data(),r=request.data(),p=target.data();
   if(admin.perfil!=='administrador'||admin.status!=='ativo'||!admin.igrejaId||admin.igrejaId!==r.igrejaId||r.igrejaId!==p.igrejaId)throw new Error('Você não pode gerenciar pedidos de outra igreja.');
-  if(r.status!=='pendente'||p.status!=='pendente')throw new Error('Esta solicitação já foi processada. Atualize a lista.');
   if(r.usuarioId!==id||!['administrador','membro'].includes(r.perfilSolicitado)||r.perfilSolicitado!==p.perfilSolicitado)throw new Error('O pedido não corresponde ao perfil cadastrado.');
+  if (repair) {
+    if (r.status !== 'aprovada' || p.status !== 'ativo' || p.perfil !== 'membro' || r.perfilSolicitado !== 'membro') {
+      throw new Error('Apenas solicitações já aprovadas de membros ativos podem ser vinculadas.');
+    }
+  } else if (r.status !== 'pendente' || p.status !== 'pendente') {
+    throw new Error('Esta solicitação já foi processada. Atualize a lista.');
+  }
+  const profileChanges = {status: approve ? 'ativo' : 'recusado', perfil: approve ? r.perfilSolicitado : 'membro'};
+  if (approve && r.perfilSolicitado === 'membro') {
+    const email = normalizedEmail(p.email);
+    if (!email || normalizedEmail(r.email) !== email) throw new Error('Confira o e-mail do pedido e do perfil antes de aprovar.');
+    const snapshot = await getDocs(query(collection(db, 'membros'), where('igrejaId', '==', p.igrejaId)));
+    const matches = snapshot.docs.filter(item => {
+      const person = item.data();
+      return person.igrejaId === p.igrejaId && (person.usuarioId === id || normalizedEmail(person.email) === email ||
+        normalizedEmail(person.emailAcesso) === email);
+    });
+    if (matches.length > 1 || (p.membroId && matches.some(item => item.id !== p.membroId))) {
+      throw new Error('Há mais de um cadastro para este e-mail na igreja. Revise os registros em Membros antes de prosseguir.');
+    }
+    const personRef = doc(db, 'membros', p.membroId || matches[0]?.id || id);
+    const person = await tx.get(personRef);
+    if (person.exists()) {
+      const saved = person.data();
+      if (saved.igrejaId !== p.igrejaId || (saved.usuarioId && saved.usuarioId !== id) ||
+          !(saved.usuarioId === id || normalizedEmail(saved.email) === email || normalizedEmail(saved.emailAcesso) === email)) {
+        throw new Error('O cadastro encontrado não pode ser vinculado a esta conta. Revise os dados em Membros.');
+      }
+      if (saved.status !== 'Ativo') throw new Error('O cadastro correspondente ainda não está ativo. Revise a situação em Membros.');
+      tx.update(personRef, {usuarioId: id, emailAcesso: p.email, funcao: 'membro'});
+      tx.set(doc(db, 'comunidadeMembros', personRef.id), {...publicMember(saved), igrejaId: p.igrejaId});
+    } else {
+      const created = {igrejaId: p.igrejaId, nome: p.nome, email, emailAcesso: p.email, telefone: '',
+        ministerio: p.ministerio || '', celula: '', banda: '', status: 'Ativo', usuarioId: id, funcao: 'membro'};
+      tx.set(personRef, created);
+      tx.set(doc(db, 'comunidadeMembros', personRef.id), {...publicMember(created), igrejaId: p.igrejaId});
+    }
+    profileChanges.membroId = personRef.id;
+  }
+  if (repair) {
+    tx.update(doc(db, 'usuarios', id), {membroId: profileChanges.membroId});
+    return;
+  }
   tx.update(doc(db,'solicitacoes',id),{status:approve?'aprovada':'recusada',decididoPor:actor,decididoEm:serverTimestamp()});
-  tx.update(doc(db,'usuarios',id),{status:approve?'ativo':'recusado',perfil:approve?r.perfilSolicitado:'membro'});
+  tx.update(doc(db,'usuarios',id),profileChanges);
  });
 }
 export async function mountAccessRequests(profile) {
@@ -46,18 +91,24 @@ export async function mountAccessRequests(profile) {
      const button=document.createElement('button');button.type='button';button.className='button '+(approved?'':'secondary danger');button.textContent=approved?'Aprovar acesso':'Recusar';
      button.onclick=()=>openDecision(row,approved);actions.append(button);
     }card.append(actions);
+   } else if (row.status === 'aprovada' && row.perfilSolicitado === 'membro') {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'button secondary'; button.textContent = 'Conferir vínculo em Membros';
+    button.onclick = () => openDecision(row, true, true);
+    card.append(button);
    }host.append(card);
   }
  }
  const dialog=document.querySelector('#request-dialog');
- function openDecision(row,approved){
-  document.querySelector('#decision-title').textContent=approved?'Aprovar acesso':'Recusar acesso';
+ function openDecision(row,approved,repair=false){
+  document.querySelector('#decision-title').textContent=repair?'Conferir vínculo em Membros':approved?'Aprovar acesso':'Recusar acesso';
   document.querySelector('#decision-text').textContent=approved?'Liberar o acesso de '+row.nome+' como '+(row.perfilSolicitado==='administrador'?'Administrador? Essa pessoa poderá gerenciar os dados da sua igreja.':'Membro da sua igreja?'):'Recusar a solicitação de '+row.nome+'? A conta continuará sem acesso.';
   document.querySelector('#decision-error').textContent='';
-  const confirm=document.querySelector('#confirm-request');confirm.textContent=approved?'Confirmar aprovação':'Confirmar recusa';
+  if (repair) document.querySelector('#decision-text').textContent = 'Criar ou vincular o cadastro de membro usando o e-mail desta conta aprovada?';
+  const confirm=document.querySelector('#confirm-request');confirm.textContent=repair?'Conferir e vincular':approved?'Confirmar aprovação':'Confirmar recusa';
   confirm.onclick=async()=>{
    if(busy)return;busy=true;confirm.disabled=true;document.querySelector('#cancel-request').disabled=true;
-   try{await decideAccessRequest(row.id,approved);row.status=approved?'aprovada':'recusada';render();dialog.close();say(approved?'Acesso aprovado. A pessoa já pode entrar com a conta cadastrada.':'Solicitação recusada.');}
+   try{await decideAccessRequest(row.id,approved,repair);row.status=approved?'aprovada':'recusada';render();dialog.close();say(repair?'Cadastro vinculado. Consulte a página Membros.':approved?'Acesso aprovado. A pessoa já pode entrar com a conta cadastrada.':'Solicitação recusada.');}
    catch(error){document.querySelector('#decision-error').textContent=error.code==='permission-denied'?'Sem permissão. Confira se as regras atualizadas foram publicadas.':error.code?'Não foi possível salvar. Confira a conexão e atualize a lista.':error.message;}
    finally{busy=false;confirm.disabled=false;document.querySelector('#cancel-request').disabled=false;}
   };dialog.showModal();document.querySelector('#cancel-request').focus();

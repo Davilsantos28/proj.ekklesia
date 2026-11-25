@@ -1,6 +1,6 @@
 import './dados.js';
 import { db, auth } from './firebase-config.js';
-import { collection, doc, getDoc, getDocs, query, where, writeBatch, runTransaction, serverTimestamp, Timestamp, setDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where, writeBatch, runTransaction, serverTimestamp, Timestamp, setDoc } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { publicMember, eventStart, isOpenWorship, safePaymentUrl } from './community-model.js';
 
 const modules = ['membros', 'bandas', 'ministerios', 'celulas', 'escalas', 'campanhas'];
@@ -52,6 +52,20 @@ export async function initializeAdmin(profile) {
     ['pixChave', 'Chave Pix (opcional)'], ['pixBeneficiario', 'Beneficiário do Pix (obrigatório se houver chave)'],
     ['orientacoesDoacao', 'Como entregar doações / orientações (opcional)', 'textarea']
   );
+  if (document.body.dataset.page === 'escalas' && activeChurchId && !leaderMode) {
+    const source = query(collection(db, 'disponibilidades'), where('igrejaId', '==', activeChurchId));
+    const unsubscribe = onSnapshot(source, snapshot => {
+      availabilityCache = rows(snapshot);
+      publish();
+    }, () => {
+      const error = document.querySelector('#availability-list-error');
+      if (error) {
+        error.hidden = false;
+        error.textContent = 'A atualização automática foi interrompida. Atualize a lista para tentar novamente.';
+      }
+    });
+    window.addEventListener('pagehide', unsubscribe, {once:true});
+  }
 }
 async function syncMinistryCatalog(rows) {
   const names = [...new Set(rows
@@ -111,8 +125,8 @@ export async function saveRecord(module, record, editing = false) {
     ...publicMember(value), ...(activeChurchId ? { igrejaId: activeChurchId } : {})
   });
   await batch.commit();
-  const saved = { ...value, id: reference.id };
   const index = cache[module].findIndex(item => item.id === reference.id);
+  const saved = { ...cache[module][index], ...value, id: reference.id };
   if (index < 0) cache[module].unshift(saved); else cache[module][index] = saved;
   publish();
   return saved;
@@ -202,5 +216,6 @@ export async function cancelAvailability(id) {
 }
 export async function refreshAdminAvailability() {
   availabilityCache = await readCollection('disponibilidades');
+  publish();
   return clone(availabilityCache);
 }

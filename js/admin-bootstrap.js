@@ -30,7 +30,10 @@ try {
         notifications.onclick = () => { window.location.href = 'solicitacoes.html'; };
       }
       if (document.body.classList.contains('dashboard-page')) await import('./inicio.js');
-      if (document.body.dataset.page === 'escalas') await import('./disponibilidades.js');
+      if (document.body.dataset.page === 'escalas') {
+        await import('./disponibilidades.js');
+        await import('./agente-interface.js');
+      }
       if (isLeader(profile)) { const {mountLeaderLayout}=await import('./leader-layout.js');mountLeaderLayout(); }
       document.querySelectorAll('.user-info strong').forEach(node => { node.textContent = profile.nome; });
       document.querySelectorAll('.user-avatar').forEach(node => { node.textContent = profile.nome?.trim().slice(0, 1).toUpperCase() || 'A'; });

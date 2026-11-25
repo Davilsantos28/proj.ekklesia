@@ -21,6 +21,11 @@ test('membro e administrador compartilham cadastros e respostas, com telas disti
       a2: { nome: 'Campanha sem configuração', tipo: 'Alimentos', inicio: '2026-01-01', fim: '2099-12-31', unidade: 'cestas', meta: 100, arrecadado: 0, entregue: 0, status: 'Em andamento' }
     }, disponibilidades: { outra: { usuarioId: 'outro', escalaId: 'e1', nome: 'Pessoa privada', disponivel: true, data: '2099-01-04', horario: '18:00', cultoNome: 'Culto de domingo', local: 'Templo', observacao: 'PRIVADO' } }
   };
+  for (const collection of Object.values(state)) {
+    for (const row of Object.values(collection)) row.igrejaId = 'church-a';
+  }
+  state.usuarios.admin1 = {nome:'Administrador',perfil:'administrador',status:'ativo',igrejaId:'church-a'};
+  state.system = {tenancy:{migrationComplete:true}};
   const requests = [];
   const root = path.resolve('.');
   const server = http.createServer(async (req, res) => {
@@ -32,7 +37,9 @@ test('membro e administrador compartilham cadastros e respostas, com telas disti
       if (command.action === 'get') return res.end(JSON.stringify(state[command.ref.name]?.[command.ref.id] ?? null));
       if (command.action === 'list') {
         let result = Object.entries(state[command.ref.name] || {}).map(([id, data]) => ({ id, data }));
-        for (const filter of command.ref.filters || []) result = result.filter(row => row.data[filter.field] === filter.value);
+        for (const filter of command.ref.filters || []) {
+          result = filter.limit ? result.slice(0,filter.limit) : result.filter(row => row.data[filter.field] === filter.value);
+        }
         return res.end(JSON.stringify(result));
       }
       for (const op of command.ops) {
@@ -44,18 +51,23 @@ test('membro e administrador compartilham cadastros e respostas, com telas disti
     }
     const file = path.resolve(root, '.' + new URL(req.url, 'http://localhost').pathname);
     if (!file.startsWith(root + path.sep) || !fs.existsSync(file)) { res.writeHead(404); return res.end(); }
-    res.setHeader('Content-Type', ({ '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.jpeg': 'image/jpeg' })[path.extname(file)] || 'text/plain');
+    res.setHeader('Content-Type', ({ '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.mjs': 'application/javascript', '.jpeg': 'image/jpeg' })[path.extname(file)] || 'text/plain');
     fs.createReadStream(file).pipe(res);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const mockFirestore = `
     async function call(command) { const response = await fetch('/__db', {method:'POST',body:JSON.stringify(command)}); if(!response.ok)throw Object.assign(new Error('offline'),{code:'unavailable'});return response.json(); }
     export const collection = (db,name) => ({name});
+    export const onSnapshot = () => () => {};
     export const doc = (db,name,id) => db.name ? {name:db.name,id:crypto.randomUUID()} : {name,id};
     export const where = (field,operator,value) => ({field,operator,value});
+    export const limit = value => ({limit:value});
     export const query = (ref,...filters) => ({...ref,filters});
     export const getDocs = async ref => ({docs:(await call({action:'list',ref})).map(row=>({id:row.id,data:()=>row.data}))});
     export const getDocFromServer = async ref => { const data=await call({action:'get',ref});return {exists:()=>data!==null,data:()=>data}; };
+    export const getDoc = getDocFromServer;
+    export const setDoc = (ref,value) => call({action:'commit',ops:[{kind:'set',ref,value}]});
+    export const updateDoc = (ref,value) => call({action:'commit',ops:[{kind:'update',ref,value}]});
     export const Timestamp = {fromDate:date=>date.toISOString()};
     export const serverTimestamp = () => 'server-time';
     export const writeBatch = () => { const ops=[]; return {set:(ref,value)=>ops.push({kind:'set',ref,value}),update:(ref,value)=>ops.push({kind:'update',ref,value}),delete:ref=>ops.push({kind:'delete',ref}),commit:()=>call({action:'commit',ops})}; };
@@ -66,8 +78,8 @@ test('membro e administrador compartilham cadastros e respostas, com telas disti
     browser = await chromium.launch({ channel: 'msedge', headless: true });
     const page = await browser.newPage(); const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.route('**/js/firebase-config.js', route => route.fulfill({ contentType: 'application/javascript', body: `export const db={}; export const auth={currentUser:{uid:'member1'},authStateReady:async()=>{}};` }));
-    await page.route('**/js/auth-service.js', route => route.fulfill({ contentType: 'application/javascript', body: `export const readProfile=async()=>({nome:'Ana Teste',perfil:'${role}',status:'ativo'});export const isAdministrator=p=>p.perfil==='administrador';export const isActiveUser=p=>p.status==='ativo';export const homeFor=p=>isAdministrator(p)?'inicio.html':'portal-membro.html';export const logout=async()=>{};export const errorMessage=e=>e.message;` }));
+    await page.route('**/js/firebase-config.js', route => route.fulfill({ contentType: 'application/javascript', body: `export const appCheckSiteKey=''; export const db={}; export const auth={currentUser:{uid:'${role==='administrador'?'admin1':'member1'}'},authStateReady:async()=>{}};` }));
+    await page.route('**/js/auth-service.js', route => route.fulfill({ contentType: 'application/javascript', body: `export const readProfile=async()=>({nome:'Ana Teste',perfil:'${role}',status:'ativo',igrejaId:'church-a'});export const isAdministrator=p=>p.perfil==='administrador';export const isLeader=p=>p.perfil==='lider';export const isActiveUser=p=>p.status==='ativo';export const homeFor=p=>isAdministrator(p)?'inicio.html':'portal-membro.html';export const logout=async()=>{};export const errorMessage=e=>e.message;` }));
     await page.route('https://www.gstatic.com/**', route => {
       if (!route.request().url().endsWith('firebase-firestore.js')) throw new Error('Unexpected remote dependency');
       return route.fulfill({ contentType: 'application/javascript', body: mockFirestore });
@@ -151,8 +163,9 @@ test('membro e administrador compartilham cadastros e respostas, com telas disti
     assert.ok(Object.values(state.campanhas).some(row => row.nome === 'Campanha nova' && row.entregue === 0));
     await page.goto(base + '/pages/membros.html');
     await page.locator('[data-action="edit"]').first().click();
-    await page.locator('#record-nome').fill('Ana Atualizada');
-    await page.locator('#record-form [type="submit"]').click();
+    await page.locator('#member-nome').fill('Ana Atualizada');
+    await page.locator('#member-emailAcesso').fill('');
+    await page.getByRole('button', {name:'Salvar alterações',exact:true}).click();
     await page.locator('#record-dialog').waitFor({ state: 'hidden' });
     assert.equal(state.comunidadeMembros.m1.nome, 'Ana Atualizada');
     assert.equal('email' in state.comunidadeMembros.m1, false);

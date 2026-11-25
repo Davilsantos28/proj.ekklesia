@@ -119,6 +119,13 @@ service cloud.firestore {
         && request.resource.data.nomes.size() <= 100;
       allow delete: if false;
     }
+    function validApprovedMember(uid, before, after) {
+      let member = getAfter(/databases/$(database)/documents/membros/$(after.membroId)).data;
+      return tenancyReady() && after.membroId is string
+        && (!('membroId' in before) || before.membroId == after.membroId)
+        && member.usuarioId == uid && member.igrejaId == before.igrejaId && member.funcao == 'membro'
+        && member.emailAcesso == before.email && member.status == 'Ativo';
+    }
     function validAccessDecision(uid) {
       let path = /databases/$(database)/documents/solicitacoes/$(uid);
       let before = get(path).data;
@@ -131,9 +138,13 @@ service cloud.firestore {
         && before.perfilSolicitado in ['administrador','membro'] && userBefore.perfilSolicitado == before.perfilSolicitado
         && after.diff(before).affectedKeys().hasOnly(['status','decididoPor','decididoEm'])
         && after.decididoPor == request.auth.uid && after.decididoEm == request.time
-        && userAfter.diff(userBefore).affectedKeys().hasOnly(['status','perfil'])
-        && ((after.status == 'aprovada' && userAfter.status == 'ativo' && userAfter.perfil == before.perfilSolicitado)
-          || (after.status == 'recusada' && userAfter.status == 'recusado' && userAfter.perfil == 'membro'));
+        && ((after.status == 'aprovada' && userAfter.status == 'ativo' && userAfter.perfil == before.perfilSolicitado
+            && (before.perfilSolicitado == 'membro'
+              ? userAfter.diff(userBefore).affectedKeys().hasOnly(['status','perfil','membroId'])
+                && validApprovedMember(uid, userBefore, userAfter)
+              : userAfter.diff(userBefore).affectedKeys().hasOnly(['status','perfil'])))
+          || (after.status == 'recusada' && userAfter.status == 'recusado' && userAfter.perfil == 'membro'
+            && userAfter.diff(userBefore).affectedKeys().hasOnly(['status','perfil'])));
     }
     match /usuarios/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || (churchAdministrator() && resource.data.igrejaId == currentUser().igrejaId));
@@ -184,6 +195,10 @@ service cloud.firestore {
     }
     match /membros/{id} {
       allow read: if canAdminRecord(resource.data) || leaderRecord(resource.data);
+      // Permite verificar se o ID determinístico da conta ainda não tem cadastro.
+      allow get: if churchAdministrator()
+        && !exists(/databases/$(database)/documents/membros/$(id))
+        && get(userPath(id)).data.igrejaId == currentUser().igrejaId;
       allow update: if tenancyReady() && leaderRecord(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ministerio','celula','banda','ministerioId','celulaId','bandaId'])
         && validGroupLink(request.resource.data,'ministerioId','ministerio','ministerios')
@@ -226,26 +241,31 @@ service cloud.firestore {
     match /comunidadeMembros/{id} {
       allow read: if canReadRecord(resource.data);
       allow create, update: if tenancyReady() && churchLeader()
-        && request.resource.data.keys().hasOnly(['nome','ministerio','celula','banda','status','igrejaId'])
+        && request.resource.data.keys().hasOnly(['nome','ministerio','celula','celulaId','banda','status','igrejaId'])
         && request.resource.data.igrejaId == currentUser().igrejaId
         && request.resource.data.nome == getAfter(/databases/$(database)/documents/membros/$(id)).data.nome
         && request.resource.data.status == getAfter(/databases/$(database)/documents/membros/$(id)).data.status
         && request.resource.data.ministerio == getAfter(/databases/$(database)/documents/membros/$(id)).data.ministerio
         && request.resource.data.celula == getAfter(/databases/$(database)/documents/membros/$(id)).data.celula
+        && request.resource.data.get('celulaId', null) == getAfter(/databases/$(database)/documents/membros/$(id)).data.get('celulaId', null)
         && request.resource.data.banda == getAfter(/databases/$(database)/documents/membros/$(id)).data.banda
         && getAfter(/databases/$(database)/documents/membros/$(id)).data.igrejaId == currentUser().igrejaId;
       allow create: if canCreateRecord(request.resource.data)
-        && request.resource.data.keys().hasOnly(['nome', 'ministerio', 'celula', 'banda', 'status', 'igrejaId'])
+        && request.resource.data.keys().hasOnly(['nome', 'ministerio', 'celula', 'celulaId', 'banda', 'status', 'igrejaId'])
         && request.resource.data.keys().hasAll(['nome', 'ministerio', 'celula', 'banda', 'status'])
         && request.resource.data.nome is string && request.resource.data.ministerio is string
         && request.resource.data.celula is string && request.resource.data.banda is string
-        && request.resource.data.status is string;
+        && request.resource.data.status is string
+        && (!('celulaId' in request.resource.data) || (request.resource.data.celulaId is string
+          && request.resource.data.celulaId == getAfter(/databases/$(database)/documents/membros/$(id)).data.celulaId));
       allow update: if canEditRecord(resource.data) && canEditRecord(request.resource.data)
-        && request.resource.data.keys().hasOnly(['nome', 'ministerio', 'celula', 'banda', 'status', 'igrejaId'])
+        && request.resource.data.keys().hasOnly(['nome', 'ministerio', 'celula', 'celulaId', 'banda', 'status', 'igrejaId'])
         && request.resource.data.keys().hasAll(['nome', 'ministerio', 'celula', 'banda', 'status'])
         && request.resource.data.nome is string && request.resource.data.ministerio is string
         && request.resource.data.celula is string && request.resource.data.banda is string
-        && request.resource.data.status is string;
+        && request.resource.data.status is string
+        && (!('celulaId' in request.resource.data) || (request.resource.data.celulaId is string
+          && request.resource.data.celulaId == getAfter(/databases/$(database)/documents/membros/$(id)).data.celulaId));
       allow delete: if canEditRecord(resource.data);
     }
     match /disponibilidades/{id} {

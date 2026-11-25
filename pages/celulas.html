@@ -103,7 +103,7 @@
 
                     <button class="menu-button" type="button" aria-label="Alternar menu" aria-controls="sidebar" aria-expanded="true"><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
 
-                    <span>Células</span>
+                    <span>Células<span id="cell-breadcrumb"></span></span>
 
                 </div>
 
@@ -137,6 +137,7 @@
 
 
 <section class="dashboard module-page" id="page-content">
+<div id="cell-list">
 <div class="page-heading module-heading">
 <div>
 <span class="eyebrow">GESTÃO DA COMUNIDADE</span>
@@ -177,6 +178,39 @@
 </div>
 </section>
 <section id="calendar" class="table-panel" hidden aria-label="Calendário de escalas">
+</section>
+</div>
+<section id="cell-detail" hidden aria-labelledby="cell-title">
+    <button type="button" class="button secondary" id="cell-back">← Voltar</button>
+    <p class="context-note" id="cell-missing" hidden>Célula não encontrada na sua igreja.</p>
+    <div id="cell-record">
+        <div class="page-heading module-heading cell-heading">
+            <div class="cell-heading-copy">
+                <span class="stat-icon cell-heading-icon" id="cell-heading-icon" aria-hidden="true"></span>
+                <div><span class="eyebrow">GESTÃO DA CÉLULA</span><h2 id="cell-title" tabindex="-1"></h2><p>Veja as informações da célula e seus participantes.</p></div>
+            </div>
+            <button type="button" class="button secondary" id="edit-cell-detail">Editar célula</button>
+        </div>
+        <div class="stats-grid" id="cell-cards" aria-label="Resumo da célula"></div>
+        <div class="cell-tabs" role="tablist" aria-label="Detalhes da célula">
+            <button type="button" role="tab" id="cell-tab-participants" data-cell-tab="participants" aria-selected="true" aria-controls="cell-participants">Participantes</button>
+            <button type="button" role="tab" id="cell-tab-info" data-cell-tab="info" aria-selected="false" aria-controls="cell-info" tabindex="-1">Informações da Célula</button>
+        </div>
+        <div id="cell-participants" class="table-panel cell-table-panel" role="tabpanel" aria-labelledby="cell-tab-participants">
+            <form class="filters" id="participant-filters" role="search">
+                <div class="search-field"><label for="participant-search">Buscar</label><input type="search" name="busca" id="participant-search" placeholder="Buscar por nome ou outras informações…"></div>
+                <div><label for="participant-ministry">Ministério</label><select id="participant-ministry" name="ministerio"><option value="">Todos</option></select></div>
+                <div><label for="participant-status">Status</label><select id="participant-status" name="status"><option value="">Todos</option></select></div>
+                <button type="reset" class="button secondary">Limpar filtros</button>
+            </form>
+            <div class="table-scroll"><table id="cell-participants-table">
+                <thead><tr><th scope="col">Nome</th><th scope="col">Ministério</th><th scope="col">Função</th><th scope="col">Status</th><th scope="col">Ações</th></tr></thead>
+                <tbody></tbody>
+            </table></div>
+            <div class="table-footer"><p id="participant-count" aria-live="polite"></p><nav id="participant-pagination" aria-label="Páginas de participantes"></nav></div>
+        </div>
+        <div id="cell-info" class="dashboard-card" role="tabpanel" aria-labelledby="cell-tab-info" hidden><dl id="cell-info-list" class="details-list"></dl></div>
+    </div>
 </section>
 </section>
 </main>

@@ -1,5 +1,6 @@
 import { cancelAvailability, refreshAdminAvailability } from './community-service.js';
 import { availabilityState } from './community-model.js';
+import { openScale, scaleIndicators } from './scale-indicators.js';
 (() => {
   'use strict';
   if (document.body.dataset.page !== 'escalas') return;
@@ -57,10 +58,19 @@ import { availabilityState } from './community-model.js';
         '<td class="availability-observation">'+escape(record.observacao || 'Sem observação')+'</td>'+
         '<td><span class="badge '+color+'">'+label+'</span></td><td>'+(record.disponivel?'<button type="button" class="button secondary danger" data-cancel-availability="'+escape(record.id)+'" aria-label="Cancelar disponibilidade de '+escape(memberName)+' para '+escape(scaleName)+'">Cancelar</button>':'—')+'</td></tr>';
     }).join('') : '<tr><td colspan="7" class="empty-state"><strong>Nenhuma disponibilidade encontrada</strong>'+ (entries.length?'Ajuste os filtros ou atualize a lista.':'As respostas enviadas pelos membros aparecerão aqui.')+'</td></tr>';
-    const valid = entries.filter(entry=>entry.state==='available' && (!scaleId || entry.record.id_escala===scaleId));
-    const total = new Set(valid.map(entry=>entry.record.id_membro)).size;
     const scale = scales.find(row=>row.id===scaleId);
-    $('#availability-scale-summary').textContent = (scale ? scaleLabel(scale)+'. ' : scaleId ? 'Escala removida. ' : 'Todas as escalas. ') + total + ' membro(s) com disponibilidade válida para '+(scaleId?'esta escala.':'escalas futuras.');
+    const records = entries.map(entry => entry.record);
+    const counts = scale && scaleIndicators(scale, records);
+    const total = new Set(scales.flatMap(row => scaleIndicators(row, records).available)).size;
+    $('#availability-scale-summary').textContent = counts
+      ? scaleLabel(scale) + ' · ' + counts.available.length + ' disponíveis · ' + counts.assigned.length +
+        ' escalados · ' + counts.filled + ' vagas preenchidas · ' +
+        (counts.demand ?? '—') + ' serviços previstos' +
+        (counts.coverage === null ? '' : ' · Disponibilidade potencial: ' + counts.coverage + '%')
+      : scaleId ? 'Escala removida.' : total + ' pessoa(s) com disponibilidade válida em escalas futuras.';
+    const agent = $('#agent-for-scale');
+    agent.hidden = !openScale(scale);
+    agent.dataset.analyzeScale = scale?.id || '';
     $('#availability-result-count').textContent = rows.length ? 'Mostrando '+(offset+1)+' a '+Math.min(offset+pageSize,rows.length)+' de '+rows.length+' registros' : 'Nenhum registro encontrado';
     $('#availability-pagination').innerHTML = '<button type="button" class="page-button" data-availability-page="'+(page-1)+'" aria-label="Página anterior" '+(page===1?'disabled':'')+'>‹</button><span class="availability-page-label">'+page+' / '+pages+'</span><button type="button" class="page-button" data-availability-page="'+(page+1)+'" aria-label="Próxima página" '+(page===pages?'disabled':'')+'>›</button>';
   }
@@ -88,6 +98,7 @@ import { availabilityState } from './community-model.js';
       $('#availability-result-count').textContent = 'Dados indisponíveis';
       $('#availability-pagination').innerHTML = '';
       $('#availability-scale-summary').textContent = '';
+      $('#agent-for-scale').hidden = true;
     }
   }
   function showAvailabilities(show) {

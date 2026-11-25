@@ -17,6 +17,7 @@
 </head>
 <body data-page="escalas">
 <p id="access-loading" class="access-loading" role="status">Verificando acesso… Se esta mensagem persistir, confira sua conexão e recarregue a página.</p>
+
 <noscript>Ative o JavaScript para acessar o sistema.</noscript>
 <a class="skip-link" href="#page-content">Ir para o conteúdo</a>
     <div class="layout">
@@ -145,6 +146,7 @@
 <p>Crie, visualize e gerencie as escalas da sua comunidade.</p>
 </div>
 <div class="heading-actions">
+<button type="button" class="button secondary" id="open-schedule-agent" aria-haspopup="dialog">Analisar disponibilidades com IA</button>
 <button type="button" class="button secondary" id="calendar-toggle" aria-pressed="false"><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2m4 0h2m-8 3h2"/></svg> Calendário</button>
 <button type="button" class="button" id="add-record"><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg> Nova Escala</button>
 </div>
@@ -166,7 +168,7 @@
 </div>
 <button class="button secondary" type="reset">Limpar filtros</button>
 </form>
-<p class="context-note">Cadastre o tipo Culto para receber disponibilidades dos membros. As sugestões por IA serão integradas em uma etapa futura.</p>
+<p class="context-note">Cadastre o tipo Culto para receber disponibilidades dos membros. A análise por IA consulta os registros da escala selecionada.</p>
 <div class="status-tabs" id="status-tabs" aria-label="Filtrar escalas por status">
 </div>
 <section class="table-panel" aria-label="Listagem de escalas">
@@ -202,6 +204,7 @@
         </div>
         <button type="reset" class="button secondary">Limpar filtros</button>
     </form>
+    <button type="button" class="button secondary" id="agent-for-scale" data-analyze-scale hidden> Analisar esta escala com IA</button>
     <p id="availability-scale-summary" class="context-note" aria-live="polite"></p>
     <p id="availability-list-error" class="form-error" role="alert" hidden></p>
     <section class="table-panel" aria-label="Lista de disponibilidades">
@@ -231,6 +234,22 @@
 </dialog>
 <div id="toast" role="status" aria-live="polite" hidden>
 </div>
+<dialog id="schedule-agent" class="agent-dialog" aria-labelledby="schedule-agent-title">
+    <div class="dialog-heading">
+        <h2 id="schedule-agent-title">Analisar disponibilidades com IA</h2>
+        <form method="dialog"><button type="submit" class="icon-button" aria-label="Fechar análise">×</button></form>
+    </div>
+    <div class="agent-body">
+        <p id="agent-status" class="context-note" role="status" tabindex="-1"></p>
+        <form id="agent-analyze" hidden>
+            <label for="agent-scale">Escala da igreja</label><select id="agent-scale" required></select>
+            <div class="dialog-actions">
+                <button class="button" type="submit" id="agent-submit">Analisar escala</button>
+            </div>
+        </form>
+        <section id="agent-result" aria-label="Resultado da análise" hidden></section>
+    </div>
+</dialog>
 <noscript>
 <p class="demo-notice">Ative o JavaScript para carregar os registros e os formulários.</p>
 </noscript>

@@ -172,6 +172,32 @@ dialog::backdrop { background:#132e2466; backdrop-filter:blur(3px); }
 
 .leader-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .leader-stats .stat-card small { color:#68796d; font-size:11px; line-height:1.6; }
+
+.cell-heading { margin: 20px 0 24px; }
+.cell-heading-copy { display:flex; align-items:center; gap:16px; min-width:0; }
+.cell-heading-copy .cell-heading-icon { width:64px; height:64px; border-radius:20px; }
+.cell-heading-icon .admin-icon { width:30px; height:30px; }
+#cell-cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+#cell-cards .stat-card { gap:12px; min-width:0; padding:16px; }
+#cell-cards .stat-card .stat-icon { width:38px; height:38px; background:#e9f3e8; color:#1b5e20; }
+#cell-cards .stat-card strong { font-size:18px; overflow-wrap:break-word; }
+.cell-tabs { display: flex; flex-wrap: wrap; gap: 12px; }
+.cell-tabs button { border: 0; border-bottom: 3px solid transparent; background: transparent; color: #44534a; padding: 12px 16px; cursor: pointer; }
+.cell-tabs [aria-selected="true"] { color: #1b5e20; border-color: #2e7d32; font-weight: 700; }
+.cell-table-panel { padding: 16px; }
+.cell-table-panel .filters { border: 0; box-shadow: none; padding: 0 0 14px; margin-bottom: 0; }
+.cell-table-panel .filters > div:not(.search-field) { flex: 1 1 130px; }
+.cell-table-panel thead { background: #edf4eb; }
+.cell-table-panel .table-footer { padding-inline: 0; }
+.agent-dialog { width: min(760px, calc(100% - 24px)); }
+.agent-body { display: grid; gap: 16px; padding: 20px; }
+#agent-result { display: grid; gap: 12px; overflow-wrap: anywhere; }
+#agent-result ul { margin-left: 20px; }
+.agent-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; }
+.agent-metrics div { background: #edf4eb; border-radius: 8px; padding: 10px; }
+.agent-metrics dt { color: #405448; font-size: .82rem; }
+.agent-metrics dd { color: #1b5e20; font-weight: 700; margin: 4px 0 0; }
+@media (max-width: 700px) { .cell-heading-copy .cell-heading-icon { width:48px; height:48px; } }
 .leader-worship-item { padding:20px 0; border-top:1px solid #e5ecdf; }
 .leader-worship-item h3 { font-size:17px; margin:12px 0 8px; }
 .leader-worship-item p { color:#68796d; line-height:1.7; font-size:13px; margin:4px 0; }

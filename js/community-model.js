@@ -1,7 +1,18 @@
 export const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+export function cellParticipants(cell, cells, members) {
+  const sameChurch = row => (row.igrejaId ?? null) === (cell.igrejaId ?? null);
+  const matchName = name => normalize(name).replace(/\s+/g, ' ');
+  const name = matchName(cell.nome);
+  const legacy = name && cells.filter(row => sameChurch(row) && matchName(row.nome) === name).length === 1;
+  return members.filter(row => sameChurch(row) &&
+    (row.celulaId ? row.celulaId === cell.id : legacy && matchName(row.celula) === name));
+}
 export function publicMember(row) {
   // Lista explícita: nunca copiar contatos ou outros campos privados.
-  return Object.fromEntries(['nome', 'ministerio', 'celula', 'banda', 'status'].map(key => [key, String(row[key] || '')]));
+  return {
+    ...Object.fromEntries(['nome', 'ministerio', 'celula', 'banda', 'status'].map(key => [key, String(row[key] || '')])),
+    ...(typeof row.celulaId === 'string' && row.celulaId ? {celulaId: row.celulaId} : {})
+  };
 }
 export function safePaymentUrl(value) {
   try {

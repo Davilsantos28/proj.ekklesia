@@ -61,9 +61,9 @@ test('cadastro responsivo, validação, sucesso, falha e login', async () => {
     async function fill(email) {
       await page.locator('#nome').fill('Pessoa Teste');
       await page.locator('#email').fill(email);
-      await page.locator('#ministerio').selectOption('Louvor');
       await page.locator('#igreja-pesquisa').fill('Igreja');
       await page.getByRole('button', { name: 'Igreja Exemplo' }).click();
+      await page.locator('#ministerio').selectOption('Louvor');
       await page.locator('#senha').fill('senha12345');
       await page.locator('#confirmacao').fill('senha12345');
     }

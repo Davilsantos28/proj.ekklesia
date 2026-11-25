@@ -17,19 +17,7 @@ export async function generateChurchText({ type, audience, tone, subject, detail
   if (!types.has(type) || !audiences.has(audience) || !tones.has(tone) || subject.length < 3 || details.length < 10) {
     throw new Error('Preencha o assunto e explique o que o texto precisa comunicar.');
   }
-  if (!appCheckSiteKey) {
-    throw new Error('A IA precisa ser configurada no Firebase antes do primeiro uso. Falta a chave pública do App Check.');
-  }
-  if (!appCheckInitialized) {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
-      isTokenAutoRefreshEnabled: true
-    });
-    appCheckInitialized = true;
-  }
-
-  const ai = getAI(app, { backend: new GoogleAIBackend() });
-  const model = getGenerativeModel(ai, {
+  const model = getGenerativeModel(getChurchAI(), {
     model: 'gemini-3.5-flash-lite',
     generationConfig: { temperature: 0.7, maxOutputTokens: 700 }
   });
@@ -57,4 +45,19 @@ export async function generateChurchText({ type, audience, tone, subject, detail
     }
     throw new Error('Não foi possível gerar o texto agora. Confira a configuração da IA e tente novamente.');
   }
+}
+
+export function getChurchAI() {
+  if (!appCheckSiteKey) {
+    throw new Error('A IA precisa ser configurada no Firebase antes do primeiro uso. Falta a chave pública do App Check.');
+  }
+  if (!appCheckInitialized) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true
+    });
+    appCheckInitialized = true;
+  }
+
+  return getAI(app, { backend: new GoogleAIBackend() });
 }
