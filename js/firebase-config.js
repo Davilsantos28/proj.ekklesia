@@ -11,8 +11,12 @@ const firebaseConfig = {
   appId: "1:805502397034:web:7f2f3b766b30fbf75ff813"
 };
 
+// Chave pública do reCAPTCHA Enterprise para proteger chamadas de IA via App Check.
+// Obtenha a chave no Firebase Console e preencha antes de habilitar a IA.
+const appCheckSiteKey = "";
+
 const app = initializeApp(firebaseConfig);
 
 const db = getFirestore(app);
 const auth = getAuth(app);
-export { app, db, auth, firebaseConfig };
+export { app, db, auth, firebaseConfig, appCheckSiteKey };

@@ -1,6 +1,6 @@
 import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, setPersistence, inMemoryPersistence, browserSessionPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
-import { getFirestore, doc, getDocFromServer, runTransaction, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { getFirestore, collection, doc, getDoc, getDocFromServer, getDocs, limit, query, runTransaction, serverTimestamp, where } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { auth, db, firebaseConfig } from './firebase-config.js';
 
 export function isAdministrator(profile) {
@@ -18,11 +18,41 @@ export async function readProfile(user) {
   return snapshot.exists() ? snapshot.data() : null;
 }
 
-export async function registerAccount({ nome, email, senha, perfil }) {
+const normalizeChurchName = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR').trim().replace(/\s+/g, ' ');
+
+export async function searchChurches(term) {
+  const normalized = normalizeChurchName(String(term || ''));
+  if (normalized.length < 2) return [];
+  const snapshots = await Promise.all(['ativa', 'ativo'].map(status =>
+    getDocs(query(collection(db, 'igrejas'), where('status', '==', status), limit(100)))
+  ));
+  const churches = snapshots.flatMap(snapshot => snapshot.docs
+    .map(item => ({ id: item.id, nome: item.data().nome })));
+  return [...new Map(churches.map(church => [church.id, church])).values()]
+    .filter(church => normalizeChurchName(church.nome).includes(normalized))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    .slice(0, 10);
+}
+
+export async function searchChurchMinistries(churchId) {
+  if (!churchId) return [];
+  const snapshot = await getDoc(doc(db, 'catalogoMinisterios', churchId));
+  const data = snapshot.exists() ? snapshot.data() : null;
+  if (!data || data.igrejaId !== churchId || !Array.isArray(data.nomes)) return [];
+  return [...new Set(data.nomes.filter(name => typeof name === 'string' && name.trim()).map(name => name.trim()))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+export async function registerAccount({ nome, email, senha, perfil, tipoIgreja, igrejaId, nomeIgreja, ministerio }) {
   nome = nome.trim();
   email = email.trim().toLowerCase();
-  if (nome.length < 2 || nome.length > 120 || !['administrador', 'membro'].includes(perfil) || senha.length < 8) {
-    throw new Error('Confira o nome, o tipo de acesso e a senha de pelo menos 8 caracteres.');
+  ministerio = String(ministerio || '').trim();
+  nomeIgreja = String(nomeIgreja || '').trim();
+  if (nome.length < 2 || nome.length > 120 || !['administrador', 'membro'].includes(perfil) || senha.length < 8 || !ministerio || !['existente', 'nova'].includes(tipoIgreja)) {
+    throw new Error('Confira o nome, o tipo de acesso, o ministério e a senha de pelo menos 8 caracteres.');
+  }
+  if ((tipoIgreja === 'existente' && !igrejaId) || (tipoIgreja === 'nova' && (nomeIgreja.length < 2 || nomeIgreja.length > 150))) {
+    throw new Error(tipoIgreja === 'existente' ? 'Pesquise e selecione sua igreja.' : 'Informe o nome da igreja (de 2 a 150 caracteres).');
   }
   // Uma instância isolada não substitui uma sessão administrativa já aberta.
   const registrationApp = initializeApp(firebaseConfig, 'cadastro-' + crypto.randomUUID());
@@ -39,17 +69,39 @@ export async function registerAccount({ nome, email, senha, perfil }) {
       credential = await signInWithEmailAndPassword(registrationAuth, email, senha);
     }
     const registrationDb = getFirestore(registrationApp);
-    const reference = doc(registrationDb, 'usuarios', credential.user.uid);
+    const uid = credential.user.uid;
+    const reference = doc(registrationDb, 'usuarios', uid);
+    const churchReference = tipoIgreja === 'nova' ? doc(collection(registrationDb, 'igrejas')) : doc(registrationDb, 'igrejas', igrejaId);
+    const requestReference = doc(registrationDb, 'solicitacoes', uid);
+    const initialAdmin = tipoIgreja === 'nova';
     await runTransaction(registrationDb, async transaction => {
       const existing = await transaction.get(reference);
       if (existing.exists()) throw new Error('Esta conta já possui cadastro. Use a opção Entrar.');
-      transaction.set(reference, {
-        nome, email, perfilSolicitado: perfil, perfil: 'membro',
-        status: perfil === 'administrador' ? 'pendente' : 'ativo',
+      if (!initialAdmin) {
+        const church = await transaction.get(churchReference);
+        if (!church.exists() || !['ativa', 'ativo'].includes(church.data().status)) throw new Error('Esta igreja não está disponível. Pesquise novamente.');
+      }
+      const profile = {
+        nome, email, ministerio, igrejaId: churchReference.id,
+        perfilSolicitado: initialAdmin ? 'administrador' : perfil,
+        perfil: initialAdmin ? 'administrador' : 'membro',
+        status: initialAdmin ? 'ativo' : 'pendente',
         criadoEm: serverTimestamp()
-      });
+      };
+      if (initialAdmin) {
+        transaction.set(churchReference, {
+          nome: nomeIgreja, nomeNormalizado: normalizeChurchName(nomeIgreja),
+          status: 'ativa', criadoEm: serverTimestamp()
+        });
+      } else {
+        transaction.set(requestReference, {
+          usuarioId: uid, igrejaId: churchReference.id, nome, email, ministerio,
+          perfilSolicitado: perfil, status: 'pendente', criadoEm: serverTimestamp()
+        });
+      }
+      transaction.set(reference, profile);
     });
-    return { pending: perfil === 'administrador' };
+    return { pending: !initialAdmin, initialAdmin, churchName: initialAdmin ? nomeIgreja : undefined };
   } finally {
     // Falha de limpeza não deve transformar um cadastro concluído em erro.
     try { await signOut(registrationAuth); } catch { /* instância em memória */ }
@@ -65,7 +117,7 @@ export async function login(email, password) {
     if (!isActiveUser(profile)) {
       await signOut(auth);
       if (!profile) throw new Error('Seu cadastro está incompleto. Volte a Criar conta e utilize o mesmo e-mail e senha para concluir.');
-      if (profile.status === 'pendente') throw new Error('Seu pedido de acesso aguarda aprovação do responsável pela comunidade.');
+      if (profile.status === 'pendente') throw new Error('Seu pedido de entrada na igreja aguarda aprovação de um administrador.');
       if (profile.status !== 'ativo') throw new Error('Seu acesso está desativado. Entre em contato com o responsável pela comunidade.');
       throw new Error('Seu perfil de acesso não é reconhecido. Contate o responsável pela comunidade.');
     }
@@ -93,7 +145,7 @@ export function errorMessage(error) {
     'auth/network-request-failed': 'Falha na conexão. Confira sua internet e tente novamente.',
     'auth/too-many-requests': 'Muitas tentativas. Aguarde um pouco antes de tentar novamente.',
     'auth/user-disabled': 'Esta conta está desativada. Contate o responsável pelo sistema.',
-    'permission-denied': 'O acesso aos perfis ainda não foi autorizado. Contate o responsável. Depois, repita o cadastro com o mesmo e-mail e senha se necessário.',
+    'permission-denied': 'O cadastro ou o vínculo com a igreja não foi autorizado pelas regras do Firestore. Confirme se as regras atualizadas foram publicadas e tente novamente.',
     'unavailable': 'O serviço está indisponível. Tente novamente com os mesmos dados.'
   };
   return messages[error.code] || (error.code ? 'Não foi possível concluir. Tente novamente.' : error.message);

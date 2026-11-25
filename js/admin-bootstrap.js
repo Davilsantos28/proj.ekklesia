@@ -14,7 +14,7 @@ try {
       else { await logout(); window.location.replace('login.html'); }
     } else {
       const { initializeAdmin } = await import('./community-service.js');
-      await initializeAdmin();
+      await initializeAdmin(profile);
       await import('./gestao.js');
       if (document.body.classList.contains('dashboard-page')) await import('./inicio.js');
       if (document.body.dataset.page === 'escalas') await import('./disponibilidades.js');

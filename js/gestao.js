@@ -554,6 +554,41 @@ import { adminData, saveRecord, removeRecord, optionalField, publishExistingMemb
       finally { button.disabled = false; }
     };
 
+    const aiForm = $('#ai-text-form');
+    const aiResult = $('#ai-text-result');
+    const aiStatus = $('#ai-text-status');
+    const aiGenerate = $('#ai-generate-text');
+    const aiCopy = $('#ai-copy-text');
+    aiForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!aiForm.reportValidity()) return;
+      aiGenerate.disabled = true;
+      aiCopy.disabled = true;
+      aiGenerate.textContent = 'Criando rascunho…';
+      aiStatus.textContent = 'A IA está preparando uma sugestão. Revise antes de compartilhar.';
+      try {
+        const { generateChurchText } = await import('./ai-text-service.js');
+        aiResult.value = await generateChurchText(Object.fromEntries(new FormData(aiForm)));
+        aiCopy.disabled = false;
+        aiStatus.textContent = 'Rascunho pronto. Revise, edite se quiser e copie para compartilhar.';
+      } catch (error) {
+        aiStatus.textContent = error.message || 'Não foi possível gerar o rascunho.';
+      } finally {
+        aiGenerate.disabled = false;
+        aiGenerate.textContent = 'Criar rascunho';
+      }
+    });
+    aiResult.addEventListener('input', () => { aiCopy.disabled = !aiResult.value.trim(); });
+    aiCopy.addEventListener('click', async () => {
+      if (!aiResult.value.trim()) return;
+      try {
+        await navigator.clipboard.writeText(aiResult.value);
+        aiStatus.textContent = 'Texto copiado. Revise antes de compartilhar.';
+      } catch {
+        aiStatus.textContent = 'Não foi possível copiar automaticamente. Selecione e copie o texto manualmente.';
+      }
+    });
+
     return;
   }
 

@@ -198,6 +198,54 @@
 <p class="context-note">Publique os nomes e vínculos dos membros já cadastrados para que apareçam nos ministérios e células. Contatos e datas pessoais não serão compartilhados. Novos cadastros e edições pelo site são sincronizados automaticamente.</p>
 <button class="button" id="publish-members" type="button">Publicar participantes</button>
 </section>
+<section class="dashboard-card full" aria-labelledby="ai-writing-title">
+<div class="card-header">
+<div>
+<small>ASSISTENTE DE COMUNICAÇÃO</small>
+<h3 id="ai-writing-title">Criar um rascunho com IA</h3>
+</div>
+</div>
+<p class="context-note">Gere avisos, convites, textos de campanha e agradecimentos. A IA usa apenas o que você escrever abaixo; não consulta os dados dos membros. Revise o texto antes de compartilhar e não inclua informações pessoais.</p>
+<form id="ai-text-form">
+<div class="form-grid">
+<div class="field">
+<label for="ai-text-type">Tipo de texto</label>
+<select id="ai-text-type" name="type">
+<option>Aviso</option><option>Convite</option><option>Campanha</option><option>Agradecimento</option>
+</select>
+</div>
+<div class="field">
+<label for="ai-text-audience">Público</label>
+<select id="ai-text-audience" name="audience">
+<option>Comunidade toda</option><option>Membros</option><option>Visitantes</option>
+</select>
+</div>
+<div class="field">
+<label for="ai-text-tone">Tom do texto</label>
+<select id="ai-text-tone" name="tone">
+<option>Acolhedor</option><option>Formal</option><option>Animado</option><option>Inspirador</option>
+</select>
+</div>
+<div class="field">
+<label for="ai-text-subject">Assunto</label>
+<input id="ai-text-subject" name="subject" required maxlength="120" placeholder="Ex.: culto especial de domingo">
+</div>
+<div class="field full">
+<label for="ai-text-details">O que o texto precisa comunicar?</label>
+<textarea id="ai-text-details" name="details" required minlength="10" maxlength="700" rows="4" placeholder="Informe os detalhes que devem aparecer. Não coloque nomes, telefones ou outros dados pessoais."></textarea>
+</div>
+<div class="field full">
+<label for="ai-text-result">Rascunho gerado — revise antes de usar</label>
+<textarea id="ai-text-result" name="result" rows="7" maxlength="5000" placeholder="O texto criado aparecerá aqui. Você poderá editar antes de copiar."></textarea>
+</div>
+</div>
+<p id="ai-text-status" class="context-note" role="status" aria-live="polite"></p>
+<div class="dialog-actions">
+<button class="button secondary" type="button" id="ai-copy-text" disabled>Copiar texto</button>
+<button class="button" type="submit" id="ai-generate-text">Criar rascunho</button>
+</div>
+</form>
+</section>
 </div>
 </section>
 </main>

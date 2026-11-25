@@ -27,8 +27,10 @@ test('cadastro responsivo, validação, sucesso, falha e login', async () => {
       export async function registerAccount(input) {
         window.submissions = (window.submissions || 0) + 1;
         if (input.email === 'erro@example.com') throw new Error('Falha simulada');
-        return { pending: input.perfil === 'administrador' };
+        return { pending: true };
       }
+      export async function searchChurches() { return [{ id: 'church-1', nome: 'Igreja Exemplo' }]; }
+      export async function searchChurchMinistries() { return ['Louvor']; }
       export function homeFor() { return 'inicio.html'; }
       export async function login() { throw new Error('Acesso pendente'); }
       export async function resetPassword() {}
@@ -49,6 +51,9 @@ test('cadastro responsivo, validação, sucesso, falha e login', async () => {
     await page.locator('#submit-auth').click();
     assert.equal(await page.evaluate(() => window.submissions || 0), 0);
     await page.locator('#confirmacao').fill('senha12345');
+    await page.locator('#igreja-pesquisa').fill('Igreja');
+    await page.getByRole('button', { name: 'Igreja Exemplo' }).click();
+    await page.locator('#ministerio').selectOption('Louvor');
     await page.locator('#submit-auth').click();
     await page.waitForFunction(() => document.querySelector('#auth-feedback').textContent.includes('aguarda aprovação'));
     await page.locator('input[value="membro"]').check();
@@ -56,11 +61,14 @@ test('cadastro responsivo, validação, sucesso, falha e login', async () => {
     async function fill(email) {
       await page.locator('#nome').fill('Pessoa Teste');
       await page.locator('#email').fill(email);
+      await page.locator('#ministerio').selectOption('Louvor');
+      await page.locator('#igreja-pesquisa').fill('Igreja');
+      await page.getByRole('button', { name: 'Igreja Exemplo' }).click();
       await page.locator('#senha').fill('senha12345');
       await page.locator('#confirmacao').fill('senha12345');
     }
     await fill('teste@example.com'); await page.locator('#submit-auth').click();
-    await page.waitForFunction(() => document.querySelector('#auth-feedback').textContent.includes('Conta de Membro criada'));
+    await page.waitForFunction(() => document.querySelector('#auth-feedback').textContent.includes('aguarda aprovação'));
     await fill('erro@example.com'); await page.locator('#submit-auth').click();
     await page.waitForFunction(() => document.querySelector('#auth-feedback').textContent.includes('Falha simulada'));
     assert.equal(await page.locator('#submit-auth').isEnabled(), true);
